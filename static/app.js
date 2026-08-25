@@ -38,8 +38,7 @@ async function injectNav() {
        <a href="/logout">Log out</a>`
     : `<a class="navbtn nav-discover" href="/index.html">Discover</a>
        <span class="spacer"></span>
-       <a class="navbtn nav-post" href="/demo-login">Demo login</a>
-       <a href="/auth.html">Sign in</a>`;
+       <a class="navbtn nav-quiet" href="/auth.html">Sign in</a>`;
 
   document.body.insertAdjacentHTML('afterbegin',
     `<nav><a class="brand" href="/">ProjectMatch</a>${links}</nav>`);
