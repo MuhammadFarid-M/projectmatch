@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Activity · ProjectMatch</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>Activity</h1>
+  <p class="sub">Invites teams sent you, and what happened to the applications
+    you sent them.</p>
+  <div id="notice"></div>
+
+  <h2>Invites you've received</h2>
+  <div id="invites"></div>
+
+  <h2>Your applications</h2>
+  <div id="applications"></div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+const INVITE_STATUS = {
+  accepted: 'You joined this team.',
+  declined: 'You declined this invite.'
+};
+
+const APP_STATUS = {
+  pending:  ['waiting on the organiser', ''],
+  accepted: ['accepted — you are on the team', 'good'],
+  rejected: ['the organiser passed', '']
+};
+
+function postMeta(v) {
+  return `${esc(v.event_type || '')}${v.starts_on ? ' · ' + esc(v.starts_on) : ''}${v.location ? ' · ' + esc(v.location) : ''}${v.remote_ok ? ' · remote ok' : ''}`;
+}
+
+function inviteCard(v) {
+  const pending = v.status === 'pending';
+  return `
+  <div class="card invite-card ${pending ? '' : 'done'}">
+    <div class="card-head">
+      <div class="grow">
+        <h3><a href="/post.html?id=${v.post_id}">${esc(v.title)}</a></h3>
+        <div class="meta">Invited by ${esc(v.owner_name)} for <strong>${esc(v.slot_role)}</strong></div>
+        <div class="meta">${postMeta(v)}</div>
+        ${v.note ? `<p class="reason">“${esc(v.note)}”</p>` : ''}
+      </div>
+      <span class="score ${scoreClass(v.match_score)}">${v.match_score}%</span>
+    </div>
+    ${pending ? `
+      <div class="actions">
+        <form method="POST" action="/invitations/${v.id}/respond">
+          <input type="hidden" name="decision" value="accept">
+          <button>Accept invite</button>
+        </form>
+        <form method="POST" action="/invitations/${v.id}/respond">
+          <input type="hidden" name="decision" value="decline">
+          <button class="danger">Decline</button>
+        </form>
+      </div>`
+    : v.status === 'accepted'
+      ? `<div class="meta"><div class="status-accepted">
+          <span class="emoji" aria-hidden="true">🎉</span>
+          you're on the team
+        </div></div>`
+      : `<div class="meta"><strong>${esc(INVITE_STATUS[v.status] || v.status)}</strong></div>`}
+  </div>`;
+}
+
+function statusBlock(a) {
+  if (a.status === 'accepted') {
+    return `<div class="status-accepted">
+      <span class="emoji" aria-hidden="true">🎉</span>
+      accepted — you're on the team
+    </div>`;
+  }
+  const [label] = APP_STATUS[a.status] || [a.status];
+  return `<strong>${esc(label)}</strong>`;
+}
+
+function applicationCard(a) {
+  return `
+  <div class="card ${a.status === 'accepted' ? 'invite-card' : ''}">
+    <div class="card-head">
+      <div class="grow">
+        <h3><a href="/post.html?id=${a.post_id}">${esc(a.title)}</a></h3>
+        <div class="meta">Applied for <strong>${esc(a.slot_role)}</strong> · ${esc(a.owner_name)}</div>
+        <div class="meta">${postMeta(a)}</div>
+        ${a.note ? `<p class="reason">You wrote: “${esc(a.note)}”</p>` : ''}
+        <div class="meta" style="margin-top:8px">
+          ${statusBlock(a)}
+          ${a.owner_email ? `<div>organiser: <strong>${esc(a.owner_email)}</strong></div>` : ''}
+        </div>
+      </div>
+      <span class="score ${scoreClass(a.match_score)}">${a.match_score}%</span>
+    </div>
+  </div>`;
+}
+
+(async () => {
+  const me = await injectNav();
+  if (!me) { location.href = '/auth.html'; return; }
+
+  if (qs('done')) document.getElementById('notice').innerHTML =
+    '<div class="notice good">Response sent.</div>';
+
+  const [invites, apps] = await Promise.all([
+    api('/api/invites'),
+    api('/api/my-applications')
+  ]);
+
+  document.getElementById('invites').innerHTML = invites.length
+    ? invites.map(inviteCard).join('')
+    : '<div class="empty">No invites yet. Keeping your skills and availability current is what puts you in front of teams.</div>';
+
+  document.getElementById('applications').innerHTML = apps.length
+    ? apps.map(applicationCard).join('')
+    : '<div class="empty">You have not applied to anything yet.</div>';
+
+  // loading this page marks decisions as seen, so drop the badge
+  document.querySelectorAll('nav .badge').forEach(b => b.remove());
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Post · ProjectMatch</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="layout">
+  <div>
+    <div id="notice"></div>
+    <div id="post"></div>
+    <div id="owner-view"></div>
+    <div id="visitor-view"></div>
+  </div>
+  <aside class="sidebar" id="sidebar"></aside>
+</div>
+
+<script src="/app.js"></script>
+<script>
+const POST_ID = qs('id');
+
+function slotTags(s) {
+  return `<div class="tags">
+    ${(s.must_have || []).map(x => `<span class="tag must">${esc(x)}</span>`).join('')}
+    ${(s.nice_to_have || []).map(x => `<span class="tag">${esc(x)}</span>`).join('')}
+  </div>`;
+}
+
+async function renderOwner(post) {
+  let html = `<div class="actions" style="margin-bottom:4px">
+      <a class="btn ghost" href="/edit-post.html?id=${post.id}">Edit this post</a>
+    </div>
+    <h2>Ranked candidates</h2>`;
+
+  for (const slot of post.slots) {
+    if (slot.filled_by) {
+      html += `<div class="slot-block"><h3>${esc(slot.role)}
+        <span class="pill filled">filled</span></h3></div>`;
+      continue;
+    }
+    html += `<div class="slot-block">
+      <h3>${esc(slot.role)}</h3>
+      ${slotTags(slot)}
+      <div id="m-${slot.id}" class="empty">Scoring…</div>
+    </div>`;
+  }
+  document.getElementById('owner-view').innerHTML = html;
+
+  for (const slot of post.slots) {
+    if (slot.filled_by) continue;
+    const data = await api(`/api/posts/${POST_ID}/slots/${slot.id}/matches?limit=8`);
+    const ctx = { postId: post.id, slotId: slot.id };
+    const box = document.getElementById('m-' + slot.id);
+    box.classList.remove('empty');
+    box.innerHTML = (data.matches.length
+        ? data.matches.map((c, i) => candidateCard(c, i, ctx)).join('')
+        : '<div class="empty">Nobody passes the filters for this slot yet.</div>')
+      + (data.dropped_count ? `<div class="dropped">
+          <strong>${data.dropped_count} people were filtered out</strong>
+          ${data.dropped.map(d => `<div>${esc(d.name)} — ${esc(d.reason)}</div>`).join('')}
+        </div>` : '');
+  }
+
+  await renderSidebar();
+}
+
+async function renderSidebar() {
+  const apps = await api(`/api/posts/${POST_ID}/applications`);
+  const applied = apps.filter(a => a.direction === 'applied');
+  const invited = apps.filter(a => a.direction === 'invited');
+
+  const appCard = a => `
+    <div class="card">
+      <div class="card-head">
+        <div class="grow">
+          <h3>${esc(a.name)}</h3>
+          <div class="meta">${esc(a.slot_role)}</div>
+          ${a.note ? `<p class="reason">“${esc(a.note)}”</p>` : ''}
+        </div>
+        <span class="score ${scoreClass(a.match_score)}">${a.match_score}%</span>
+      </div>
+      <div class="meta" style="margin-top:8px">
+        ${a.github ? `<a href="${esc(a.github)}" target="_blank" rel="noopener">GitHub</a>` : ''}
+        ${a.linkedin ? ` · <a href="${esc(a.linkedin)}" target="_blank" rel="noopener">LinkedIn</a>` : ''}
+        ${a.status === 'accepted' && a.email ? `<br><strong>${esc(a.email)}</strong>` : ''}
+      </div>
+      ${a.status === 'pending' ? `
+        <div class="actions">
+          <form method="POST" action="/applications/${a.id}/decide">
+            <input type="hidden" name="decision" value="accept">
+            <button>Accept</button>
+          </form>
+          <form method="POST" action="/applications/${a.id}/decide">
+            <input type="hidden" name="decision" value="reject">
+            <button class="danger">Reject</button>
+          </form>
+        </div>`
+      : `<div class="meta"><strong>${esc(a.status)}</strong></div>`}
+    </div>`;
+
+  const inviteRow = a => `
+    <div class="card">
+      <div class="card-head">
+        <div class="grow">
+          <h3>${esc(a.name)}</h3>
+          <div class="meta">${esc(a.slot_role)} · ${esc(
+            a.status === 'pending' ? 'awaiting reply'
+            : a.status === 'accepted' ? 'accepted your invite'
+            : 'declined')}</div>
+        </div>
+        <span class="score ${scoreClass(a.match_score)}">${a.match_score}%</span>
+      </div>
+    </div>`;
+
+  document.getElementById('sidebar').innerHTML = `
+    <h2>Applications</h2>
+    ${applied.length ? applied.map(appCard).join('')
+      : '<div class="empty">Nobody has applied yet.</div>'}
+    ${invited.length ? `<h2>Invites sent</h2>${invited.map(inviteRow).join('')}` : ''}`;
+}
+
+function renderVisitor(post) {
+  const mine = {};
+  (post.my_applications || []).forEach(a => { mine[a.slot_id] = a.status; });
+  const open = post.slots.filter(s => !s.filled_by);
+
+  const statusLine = st => st === 'accepted'
+    ? `<div class="status-accepted">
+         <span class="emoji" aria-hidden="true">🎉</span>
+         you're on this team
+       </div>
+       <div>Check Activity for contact details.</div>`
+    : ({
+        pending:  '<strong>You applied.</strong> Waiting on the organiser.',
+        rejected: '<strong>The organiser passed on this one.</strong>',
+        declined: '<strong>You declined this invite.</strong>'
+      }[st] || '<strong>You applied.</strong>');
+
+  document.getElementById('visitor-view').innerHTML = `
+    <h2>Open roles</h2>
+    ${open.length ? open.map(s => `
+      <div class="slot-block">
+        <h3>${esc(s.role)}</h3>
+        ${slotTags(s)}
+        ${mine[s.id]
+          ? `<div class="meta" style="margin-top:12px">${statusLine(mine[s.id])}</div>`
+          : ME ? `
+          <form method="POST" action="/apply" style="margin-top:12px">
+            <input type="hidden" name="post_id" value="${post.id}">
+            <input type="hidden" name="slot_id" value="${s.id}">
+            <label>A line about why you're a fit</label>
+            <textarea name="note" maxlength="500"
+              placeholder="What you'd bring to this team…"></textarea>
+            <div class="actions"><button>Express interest</button></div>
+          </form>`
+          : '<div class="meta" style="margin-top:12px"><a href="/auth.html">Sign in</a> to apply.</div>'}
+      </div>`).join('')
+      : '<div class="empty">Every role on this team is filled.</div>'}`;
+}
+
+(async () => {
+  await injectNav();
+
+  if (qs('applied')) document.getElementById('notice').innerHTML =
+    '<div class="notice good">Application sent.</div>';
+  if (qs('updated')) document.getElementById('notice').innerHTML =
+    '<div class="notice good">Post updated. Pending applicants were rescored.</div>';
+  if (qs('invited')) document.getElementById('notice').innerHTML =
+    '<div class="notice good">Invite sent — they will see it under Invites.</div>';
+
+  const post = await api(`/api/posts/${POST_ID}`);
+  document.getElementById('post').innerHTML = `
+    <h1>${esc(post.title)}</h1>
+    <p class="sub">
+      ${esc(post.event_type || '')} ·
+      ${esc(post.starts_on || '')}${post.ends_on && post.ends_on !== post.starts_on ? ' → ' + esc(post.ends_on) : ''} ·
+      ${esc(post.location || '')}${post.remote_ok ? ' · remote ok' : ''} ·
+      ~${post.hours_needed || 0} hrs/week
+    </p>
+    <div class="card">
+      <p style="margin:0">${esc(post.description)}</p>
+      <div class="tags">${(post.domains || []).map(d => `<span class="tag">${esc(d)}</span>`).join('')}</div>
+      <div class="meta">Posted by ${esc(post.owner?.name || '')}</div>
+    </div>`;
+
+  if (post.is_owner) renderOwner(post);
+  else {
+    document.getElementById('sidebar').style.display = 'none';
+    renderVisitor(post);
+  }
+})();
+</script>
+</body>
+</html>

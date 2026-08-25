@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edit post · ProjectMatch</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap narrow">
+  <h1>Edit post</h1>
+  <p class="sub">Changing the requirements rescores anyone still waiting on a
+    decision, so the numbers stay honest.</p>
+  <div id="notice"></div>
+  <form method="POST" id="form"></form>
+</div>
+
+<script src="/app.js"></script>
+<script>
+let V = null, slotCount = 0;
+
+function slotBlock(i, s) {
+  return `
+  <div class="slot-block">
+    <input type="hidden" name="slot_id" value="${s?.id || ''}">
+    <label>Role ${i + 1}</label>
+    <select name="role">
+      ${V.roles.map(r => `<option ${r === s?.role ? 'selected' : ''}>${esc(r)}</option>`).join('')}
+    </select>
+
+    <label>Minimum experience level</label>
+    <select name="min_level">
+      ${V.levels.map(l => `<option ${l === (s?.min_level || 'intermediate') ? 'selected' : ''}>${esc(l)}</option>`).join('')}
+    </select>
+
+    <label>Must-have skills — weighted double</label>
+    ${picker('must_have_' + i, V.skills, s?.must_have || [])}
+
+    <label>Nice-to-have skills</label>
+    ${picker('nice_to_have_' + i, V.skills, s?.nice_to_have || [])}
+
+    <button type="button" class="linkish"
+      onclick="this.closest('.slot-block').remove()">remove this role</button>
+  </div>`;
+}
+
+function filledBlock(s) {
+  return `
+  <div class="slot-block" style="opacity:.75">
+    <h3>${esc(s.role)} <span class="pill filled">filled</span></h3>
+    <div class="meta">This role is taken, so its requirements are locked.</div>
+  </div>`;
+}
+
+function addSlot(s) {
+  document.getElementById('slots')
+    .insertAdjacentHTML('beforeend', slotBlock(slotCount++, s));
+}
+
+(async () => {
+  const me = await injectNav();
+  if (!me) { location.href = '/auth.html'; return; }
+  V = await api('/api/vocab');
+
+  const id = qs('id');
+  const p = await api('/api/posts/' + id);
+  if (!p || !p.is_owner) {
+    document.getElementById('notice').innerHTML =
+      '<div class="notice bad">You can only edit your own posts.</div>';
+    return;
+  }
+
+  const form = document.getElementById('form');
+  form.action = `/posts/${p.id}/edit`;
+  form.innerHTML = `
+    <label>Title</label>
+    <input type="text" name="title" value="${esc(p.title)}" required>
+
+    <label>Description</label>
+    <textarea name="description">${esc(p.description)}</textarea>
+
+    <div class="row">
+      <div><label>Event type</label>
+        <select name="event_type">
+          ${V.event_types.map(e => `<option ${e === p.event_type ? 'selected' : ''}>${esc(e)}</option>`).join('')}
+        </select></div>
+      <div><label>Hours per week needed</label>
+        <input type="number" name="hours_needed" min="0" max="80" value="${p.hours_needed || 0}"></div>
+    </div>
+
+    <label>Domains</label>
+    ${picker('domains', V.domains, p.domains)}
+
+    <div class="row">
+      <div><label>Starts on</label>
+        <input type="date" name="starts_on" value="${esc(p.starts_on)}" required></div>
+      <div><label>Ends on</label>
+        <input type="date" name="ends_on" value="${esc(p.ends_on)}"></div>
+    </div>
+
+    <label>City</label>
+    <input type="text" name="location" value="${esc(p.location)}">
+    <label class="inline-check">
+      <input type="checkbox" name="remote_ok" ${p.remote_ok ? 'checked' : ''}> Remote is fine</label>
+
+    <h2>Roles</h2>
+    <div id="filled-slots"></div>
+    <div id="slots"></div>
+    <button type="button" class="ghost" onclick="addSlot()">+ Add another role</button>
+
+    <div class="actions"><button>Save changes</button></div>`;
+
+  const filled = p.slots.filter(s => s.filled_by);
+  const open = p.slots.filter(s => !s.filled_by);
+  document.getElementById('filled-slots').innerHTML = filled.map(filledBlock).join('');
+  open.forEach(addSlot);
+  if (!open.length) addSlot();
+})();
+</script>
+</body>
+</html>
