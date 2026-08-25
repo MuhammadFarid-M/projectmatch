@@ -27,7 +27,7 @@ function memberRow(s) {
   return `
     <div class="roster-row">
       <div class="grow">
-        <strong>${esc(m.name)}</strong>
+        <strong><a href="/user.html?id=${m.id}">${esc(m.name)}</a></strong>
         <span class="pill filled">${esc(s.role)}</span>
         <div class="meta">
           ${esc(m.experience_level || '')}${m.location ? ' · ' + esc(m.location) : ''}

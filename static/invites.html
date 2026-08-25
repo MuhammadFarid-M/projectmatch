@@ -44,7 +44,7 @@ function inviteCard(v) {
     <div class="card-head">
       <div class="grow">
         <h3><a href="/post.html?id=${v.post_id}">${esc(v.title)}</a></h3>
-        <div class="meta">Invited by ${esc(v.owner_name)} for <strong>${esc(v.slot_role)}</strong></div>
+        <div class="meta">Invited by <a href="/user.html?id=${v.owner_id}">${esc(v.owner_name)}</a> for <strong>${esc(v.slot_role)}</strong></div>
         <div class="meta">${postMeta(v)}</div>
         ${v.note ? `<p class="reason">“${esc(v.note)}”</p>` : ''}
       </div>
@@ -87,7 +87,7 @@ function applicationCard(a) {
     <div class="card-head">
       <div class="grow">
         <h3><a href="/post.html?id=${a.post_id}">${esc(a.title)}</a></h3>
-        <div class="meta">Applied for <strong>${esc(a.slot_role)}</strong> · ${esc(a.owner_name)}</div>
+        <div class="meta">Applied for <strong>${esc(a.slot_role)}</strong> · posted by <a href="/user.html?id=${a.owner_id}">${esc(a.owner_name)}</a></div>
         <div class="meta">${postMeta(a)}</div>
         ${a.note ? `<p class="reason">You wrote: “${esc(a.note)}”</p>` : ''}
         <div class="meta" style="margin-top:8px">

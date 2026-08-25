@@ -75,7 +75,7 @@ async function renderSidebar() {
     <div class="card">
       <div class="card-head">
         <div class="grow">
-          <h3>${esc(a.name)}</h3>
+          <h3><a href="/user.html?id=${a.user_id}">${esc(a.name)}</a></h3>
           <div class="meta">${esc(a.slot_role)}</div>
           ${a.note ? `<p class="reason">“${esc(a.note)}”</p>` : ''}
         </div>
@@ -104,7 +104,7 @@ async function renderSidebar() {
     <div class="card">
       <div class="card-head">
         <div class="grow">
-          <h3>${esc(a.name)}</h3>
+          <h3><a href="/user.html?id=${a.user_id}">${esc(a.name)}</a></h3>
           <div class="meta">${esc(a.slot_role)} · ${esc(
             a.status === 'pending' ? 'awaiting reply'
             : a.status === 'accepted' ? 'accepted your invite'
@@ -182,7 +182,9 @@ function renderVisitor(post) {
     <div class="card">
       <p style="margin:0">${esc(post.description)}</p>
       <div class="tags">${(post.domains || []).map(d => `<span class="tag">${esc(d)}</span>`).join('')}</div>
-      <div class="meta">Posted by ${esc(post.owner?.name || '')}</div>
+      <div class="meta">Posted by ${post.owner
+        ? `<a href="/user.html?id=${post.owner.id}">${esc(post.owner.name)}</a>`
+        : ''}</div>
     </div>`;
 
   if (post.is_owner) renderOwner(post);

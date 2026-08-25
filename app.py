@@ -608,7 +608,8 @@ def api_my_applications():
                   p.id AS post_id, p.title, p.event_type, p.starts_on,
                   p.location, p.remote_ok, p.domains,
                   s.role AS slot_role,
-                  o.name AS owner_name, o.email AS owner_email
+                  o.id AS owner_id, o.name AS owner_name,
+                  o.email AS owner_email
            FROM applications a
            JOIN posts p ON p.id = a.post_id
            JOIN slots s ON s.id = a.slot_id
@@ -860,13 +861,20 @@ def api_user(user_id):
     if not u:
         return jsonify({"error": "not found"}), 404
     u.pop("password_hash", None)
-    # contact details only revealed once accepted, or to yourself
-    if session.get("uid") != user_id:
-        accepted = query(
-            """SELECT a.id FROM applications a JOIN posts p ON p.id=a.post_id
-               WHERE a.user_id=? AND a.status='accepted' AND p.owner_id=?""",
-            (user_id, session.get("uid", 0)))
-        if not accepted:
+
+    # Contact details are shared once two people are actually on a team
+    # together. That has to work in both directions: the owner who accepted
+    # someone, and the person they accepted looking back at the owner.
+    me = session.get("uid", 0)
+    if me != user_id:
+        shared = query(
+            """SELECT a.id FROM applications a
+               JOIN posts p ON p.id = a.post_id
+               WHERE a.status='accepted'
+                 AND ((a.user_id=? AND p.owner_id=?)
+                   OR (a.user_id=? AND p.owner_id=?))""",
+            (user_id, me, me, user_id))
+        if not shared:
             u.pop("email", None)
     return jsonify(u)
 
