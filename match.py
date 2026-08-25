@@ -65,6 +65,13 @@ DURATION_SCORE = {
 }
 DEPTH_FLOOR = 0.6          # a no-detail project keeps 60% of its relevance
 
+# --- Availability -------------------------------------------------------
+# An event up to this many days long is treated as "short": the candidate
+# must be free for all of it. Longer projects only require that they're
+# free at the start and can commit a meaningful stretch.
+SHORT_EVENT_DAYS = 14
+MIN_LONG_OVERLAP_DAYS = 21
+
 
 # =============================================================================
 # helpers
@@ -111,24 +118,39 @@ def passes_hard_filters(user, post, slot, team_member_ids=()):
     if not user.get("open_to_join", True):
         return False, "not currently open to joining"
 
-    # availability must cover the event window
+    # Availability. For a short event (a hackathon, a weekend sprint) we
+    # want someone free for the whole thing. For anything long-running,
+    # demanding they be free for every week of a six-month project would
+    # drop literally everyone -- so there we only require that they're
+    # free when it starts and that a useful chunk of their window overlaps.
     ev_start = _as_date(post.get("starts_on"))
     ev_end = _as_date(post.get("ends_on")) or ev_start
     av_from = _as_date(user.get("available_from"))
     av_to = _as_date(user.get("available_to"))
 
     if ev_start and av_from and av_to:
-        if av_from > ev_start or av_to < ev_end:
-            return False, "not available during the event"
+        event_days = (ev_end - ev_start).days + 1
+
+        if event_days <= SHORT_EVENT_DAYS:
+            if av_from > ev_start or av_to < ev_end:
+                return False, "not available during the event"
+        else:
+            if av_from > ev_start or av_to < ev_start:
+                return False, "not free when the project starts"
+            overlap_days = (min(av_to, ev_end) - ev_start).days + 1
+            if overlap_days < MIN_LONG_OVERLAP_DAYS:
+                return False, "available for too little of the project"
 
     # location: if the post is in-person, candidate must be in the same city
-    # (or explicitly willing to travel)
+    # (or explicitly willing to travel). Both sides may be NULL for a profile
+    # that hasn't been filled in yet, so coerce rather than default -- a
+    # missing key and a null value are different things coming out of a
+    # database, and .get(k, "") only covers the first.
     if not post.get("remote_ok", False):
-        same_city = (
-            user.get("location", "").strip().lower()
-            == post.get("location", "").strip().lower()
-        )
-        if not same_city and not user.get("willing_to_travel", False):
+        user_city = (user.get("location") or "").strip().lower()
+        post_city = (post.get("location") or "").strip().lower()
+        if post_city and user_city != post_city \
+                and not user.get("willing_to_travel", False):
             return False, "not in the event city"
 
     return True, None

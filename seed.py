@@ -608,12 +608,7 @@ OTHER_POSTS = [
 # =============================================================================
 
 SCHEMA = """
-DROP TABLE IF EXISTS applications;
-DROP TABLE IF EXISTS slots;
-DROP TABLE IF EXISTS posts;
-DROP TABLE IF EXISTS users;
-
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
@@ -636,7 +631,7 @@ CREATE TABLE users (
   linkedin TEXT
 );
 
-CREATE TABLE posts (
+CREATE TABLE IF NOT EXISTS posts (
   id INTEGER PRIMARY KEY,
   owner_id INTEGER NOT NULL REFERENCES users(id),
   title TEXT NOT NULL,
@@ -653,7 +648,7 @@ CREATE TABLE posts (
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE slots (
+CREATE TABLE IF NOT EXISTS slots (
   id INTEGER PRIMARY KEY,
   post_id INTEGER NOT NULL REFERENCES posts(id),
   role TEXT NOT NULL,
@@ -663,7 +658,7 @@ CREATE TABLE slots (
   filled_by INTEGER REFERENCES users(id)
 );
 
-CREATE TABLE applications (
+CREATE TABLE IF NOT EXISTS applications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   post_id INTEGER NOT NULL REFERENCES posts(id),
   slot_id INTEGER NOT NULL REFERENCES slots(id),
@@ -691,9 +686,17 @@ def write_json(data, path="seed_data.json"):
           f"{len(data['posts'])} posts")
 
 
+DROP_ALL = """
+DROP TABLE IF EXISTS applications;
+DROP TABLE IF EXISTS slots;
+DROP TABLE IF EXISTS posts;
+DROP TABLE IF EXISTS users;
+"""
+
+
 def write_sqlite(data, path="projectmatch.db"):
     conn = sqlite3.connect(path)
-    conn.executescript(SCHEMA)
+    conn.executescript(DROP_ALL + SCHEMA)
 
     for u in data["users"]:
         conn.execute(

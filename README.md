@@ -101,6 +101,7 @@ Two environment variables matter in production:
 |---|---|---|
 | `SECRET_KEY` | a long random string | signs session cookies. Unset, the app generates a random one at boot, so sessions drop on every restart |
 | `DEMO_MODE` | leave unset | keeps passwordless login out of the build |
+| `DATABASE_URL` | your Render Postgres URL | without it, data is lost on every restart |
 
 `FLASK_DEBUG` must also stay unset — Flask's debugger exposes an interactive
 Python console on any error.
@@ -117,6 +118,23 @@ debug, which is what most platform-as-a-service hosts expect.
 The database is gitignored, so the app seeds itself on first boot — schema plus
 the 54 demo profiles. It checks for existing users first, so restarts and
 redeploys never overwrite real signups.
+
+### Storage: SQLite locally, Postgres in production
+
+Render's free web services have an ephemeral filesystem — the container is
+rebuilt on every redeploy, restart, and spin-down after 15 minutes idle. A
+SQLite file does not survive that, so user accounts vanish.
+
+`db.py` handles both backends behind one interface. Set `DATABASE_URL` and the
+app uses Postgres; leave it unset and it falls back to a local SQLite file, so
+nothing needs installing for local development. Application code is written
+once — the layer translates placeholders, auto-generated ids, row types, and
+the schema dialect.
+
+To add persistence on Render: **New → Postgres**, free instance, then copy its
+Internal Database URL into your web service's environment as `DATABASE_URL`.
+The app builds its schema and seeds itself on the next deploy. Note that free
+Render Postgres databases expire 30 days after creation.
 
 ### Render (free tier)
 

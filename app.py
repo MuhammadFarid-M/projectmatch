@@ -14,8 +14,9 @@ Run:
 import json
 import os
 import secrets
-import sqlite3
 from functools import wraps
+
+import db
 
 from flask import (Flask, g, jsonify, redirect, request,
                    send_from_directory, session)
@@ -23,8 +24,6 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from match import rank_candidates, rank_posts_for_user, score_candidate
 from vocab import ROLES, SKILLS, EVENT_TYPES, DOMAINS, LEVELS
-
-DB = os.environ.get("PROJECTMATCH_DB", "projectmatch.db")
 
 # Demo login lets anyone sign in as any account without a password. That is
 # useful on a laptop and unacceptable on a public URL, so it is OFF unless
@@ -46,76 +45,124 @@ def ensure_seeded():
     """
     Build the database on first boot if it isn't there yet.
 
-    The .db file is gitignored, so a fresh deploy arrives with no database at
-    all. This creates the schema and loads the demo profiles once. It checks
-    whether users already exist first, so a restart never wipes real signups
-    -- seed.py's own DROP TABLE statements are only ever reached on a
+    Checks whether users already exist first, so a restart never wipes real
+    signups -- the schema's DROP TABLE statements are only ever reached on a
     genuinely empty database.
     """
-    try:
-        conn = sqlite3.connect(DB)
-        n = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        conn.close()
-        if n:
-            return
-    except sqlite3.OperationalError:
-        pass  # no users table yet -- first boot
-
     import seed
-    data = seed.build()
-    seed.write_sqlite(data, DB)
-    print(f"seeded {len(data['users'])} users, {len(data['posts'])} posts")
+
+    c = db.connect()
+    try:
+        if db.table_exists(c, "users"):
+            cur = c.cursor()
+            cur.execute("SELECT COUNT(*) AS n FROM users")
+            row = db.to_dict(cur.fetchone())
+            cur.close()
+            if row and list(row.values())[0]:
+                c.close()
+                return
+
+        data = seed.build()
+        db.build_schema(c, seed.SCHEMA)
+        seed_rows(c, data)
+        print(f"seeded {len(data['users'])} users, {len(data['posts'])} posts")
+    finally:
+        c.close()
+
+
+def seed_rows(c, data):
+    """Load the generated profiles and posts, backend-agnostically."""
+    cur = c.cursor()
+    ins = lambda s, a: cur.execute(db.sql(s), a)
+
+    for u in data["users"]:
+        ins("""INSERT INTO users (id,name,email,bio,role,skills,interests,
+               experience_level,hours_per_week,projects_done,past_projects,
+               location,remote_ok,willing_to_travel,open_to_join,
+               available_from,available_to,github,linkedin)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (u["id"], u["name"], u["email"], u["bio"], u["role"],
+             json.dumps(u["skills"]), json.dumps(u["interests"]),
+             u["experience_level"], u["hours_per_week"], u["projects_done"],
+             json.dumps(u.get("past_projects", [])),
+             u["location"], int(u["remote_ok"]), int(u["willing_to_travel"]),
+             int(u["open_to_join"]), u["available_from"], u["available_to"],
+             u["github"], u["linkedin"]))
+
+    for p in data["posts"]:
+        ins("""INSERT INTO posts (id,owner_id,title,description,event_type,
+               domains,starts_on,ends_on,location,remote_ok,hours_needed,
+               status,expires_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (p["id"], p["owner_id"], p["title"], p["description"],
+             p["event_type"], json.dumps(p["domains"]), p["starts_on"],
+             p["ends_on"], p["location"], int(p["remote_ok"]),
+             p["hours_needed"], p["status"], p["expires_at"]))
+        for s in p["slots"]:
+            ins("""INSERT INTO slots (id,post_id,role,must_have,nice_to_have,
+                   min_level,filled_by) VALUES (?,?,?,?,?,?,?)""",
+                (s["id"], s["post_id"], s["role"], json.dumps(s["must_have"]),
+                 json.dumps(s["nice_to_have"]), s["min_level"], s["filled_by"]))
+
+    # Postgres sequences don't know about explicitly-inserted ids, so the
+    # next signup would collide with a seeded user. Push them past the max.
+    if db.USE_PG:
+        for t in ("users", "posts", "slots"):
+            cur.execute(
+                f"SELECT setval(pg_get_serial_sequence('{t}', 'id'), "
+                f"COALESCE((SELECT MAX(id) FROM {t}), 1))")
+
+    c.commit()
+    cur.close()
 
 
 def ensure_schema():
     """
-    Adds columns introduced after your database was first built, so you
-    don't have to rerun seed.py and lose whatever state you set up while
-    clicking around. Safe to run on every boot.
+    Adds columns introduced after a database was first built, so an existing
+    deployment doesn't need rebuilding. Safe to run on every boot.
     """
-    conn = sqlite3.connect(DB)
-    cols = [r[1] for r in conn.execute("PRAGMA table_info(applications)")]
+    c = db.connect()
+    cur = c.cursor()
+
+    cols = db.table_columns(c, "applications")
     if "direction" not in cols:
-        conn.execute("ALTER TABLE applications "
-                     "ADD COLUMN direction TEXT DEFAULT 'applied'")
-        conn.commit()
-
+        cur.execute("ALTER TABLE applications "
+                    "ADD COLUMN direction TEXT DEFAULT 'applied'")
     if "seen" not in cols:
-        conn.execute("ALTER TABLE applications ADD COLUMN seen INTEGER DEFAULT 0")
-        conn.commit()
+        cur.execute("ALTER TABLE applications "
+                    "ADD COLUMN seen INTEGER DEFAULT 0")
 
-    ucols = [r[1] for r in conn.execute("PRAGMA table_info(users)")]
-    if "past_projects" not in ucols:
-        conn.execute("ALTER TABLE users ADD COLUMN past_projects TEXT")
-        conn.execute("UPDATE users SET past_projects='[]' "
-                     "WHERE past_projects IS NULL")
-        conn.commit()
-    conn.close()
+    if "past_projects" not in db.table_columns(c, "users"):
+        cur.execute("ALTER TABLE users ADD COLUMN past_projects TEXT")
+        cur.execute("UPDATE users SET past_projects='[]' "
+                    "WHERE past_projects IS NULL")
+
+    c.commit()
+    cur.close()
+    c.close()
 
 
 # =============================================================================
 # database plumbing
 # =============================================================================
 
-def db():
-    if "db" not in g:
-        g.db = sqlite3.connect(DB)
-        g.db.row_factory = sqlite3.Row
-    return g.db
+def conn():
+    if "conn" not in g:
+        g.conn = db.connect()
+    return g.conn
 
 
 @app.teardown_appcontext
 def close_db(exc):
-    conn = g.pop("db", None)
-    if conn:
-        conn.close()
+    c = g.pop("conn", None)
+    if c:
+        c.close()
 
 
 def row_to_dict(row):
     """Decode the JSON-string columns back into real Python lists."""
     if row is None:
         return None
-    d = dict(row)
+    d = db.to_dict(row)
     for k in JSON_FIELDS:
         if k in d and isinstance(d[k], str):
             try:
@@ -125,19 +172,26 @@ def row_to_dict(row):
     return d
 
 
-def query(sql, args=(), one=False):
-    cur = db().execute(sql, args)
+def query(statement, args=(), one=False):
+    cur = conn().cursor()
+    cur.execute(db.sql(statement), args)
     rows = [row_to_dict(r) for r in cur.fetchall()]
     cur.close()
     return (rows[0] if rows else None) if one else rows
 
 
-def commit(sql, args=()):
-    cur = db().execute(sql, args)
-    db().commit()
-    last = cur.lastrowid
+def commit(statement, args=()):
+    """
+    Run a write. Returns the new row's id for INSERTs, which the two
+    backends report differently -- db.insert_returning_id hides that.
+    """
+    if statement.lstrip().upper().startswith("INSERT"):
+        return db.insert_returning_id(conn(), statement, args)
+    cur = conn().cursor()
+    cur.execute(db.sql(statement), args)
+    conn().commit()
     cur.close()
-    return last
+    return None
 
 
 def attach_owners(posts):
@@ -466,8 +520,8 @@ def apply():
                match_score) VALUES (?,?,?,?,?)""",
             (post_id, slot_id, me["id"], f.get("note", "")[:500],
              scored["score"] if scored else 0))
-    except sqlite3.IntegrityError:
-        pass  # already applied -- the UNIQUE constraint caught it
+    except db.UNIQUE_ERRORS:
+        conn().rollback()   # Postgres blocks further writes until rolled back
     return redirect(f"/post.html?id={post_id}&applied=1")
 
 
@@ -502,8 +556,8 @@ def invite():
             (post_id, slot_id, user_id,
              f.get("note", "")[:500], "pending", "invited",
              scored["score"] if scored else 0))
-    except sqlite3.IntegrityError:
-        pass  # already invited or already applied
+    except db.UNIQUE_ERRORS:
+        conn().rollback()   # already invited, or they already applied
     return redirect(f"/post.html?id={post_id}&invited=1")
 
 
@@ -547,7 +601,8 @@ def api_invites():
            JOIN slots s ON s.id = a.slot_id
            JOIN users o ON o.id = p.owner_id
            WHERE a.user_id=? AND a.direction='invited'
-           ORDER BY a.status='pending' DESC, a.match_score DESC""",
+           ORDER BY CASE WHEN a.status='pending' THEN 0 ELSE 1 END,
+                    a.match_score DESC""",
         (session["uid"],)))
 
 
@@ -586,8 +641,10 @@ def api_my_posts():
 
         counts = query(
             """SELECT
-                 SUM(direction='applied' AND status='pending') AS waiting,
-                 SUM(direction='invited' AND status='pending') AS invited
+                 SUM(CASE WHEN direction='applied' AND status='pending'
+                          THEN 1 ELSE 0 END) AS waiting,
+                 SUM(CASE WHEN direction='invited' AND status='pending'
+                          THEN 1 ELSE 0 END) AS invited
                FROM applications WHERE post_id=?""", (p["id"],), one=True) or {}
         p["waiting_count"] = counts.get("waiting") or 0
         p["invited_count"] = counts.get("invited") or 0
@@ -615,7 +672,8 @@ def api_my_applications():
            JOIN slots s ON s.id = a.slot_id
            JOIN users o ON o.id = p.owner_id
            WHERE a.user_id=? AND a.direction='applied'
-           ORDER BY a.status!='pending' DESC, a.created_at DESC""",
+           ORDER BY CASE WHEN a.status<>'pending' THEN 0 ELSE 1 END,
+                    a.created_at DESC""",
         (session["uid"],))
 
     # organiser contact details only once you're actually on the team
@@ -680,9 +738,11 @@ def api_me():
     u.pop("password_hash", None)
     counts = query(
         """SELECT
-             SUM(direction='invited' AND status='pending')   AS invites,
-             SUM(direction='applied' AND status!='pending'
-                 AND COALESCE(seen,0)=0)                     AS decisions
+             SUM(CASE WHEN direction='invited' AND status='pending'
+                      THEN 1 ELSE 0 END) AS invites,
+             SUM(CASE WHEN direction='applied' AND status<>'pending'
+                       AND COALESCE(seen,0)=0
+                      THEN 1 ELSE 0 END) AS decisions
            FROM applications WHERE user_id=?""",
         (u["id"],), one=True) or {}
     invites = counts.get("invites") or 0
@@ -850,8 +910,8 @@ def api_applications(post_id):
            JOIN users u ON u.id = a.user_id
            JOIN slots s ON s.id = a.slot_id
            WHERE a.post_id=?
-           ORDER BY a.direction='applied' DESC,
-                    a.status='pending' DESC,
+           ORDER BY CASE WHEN a.direction='applied' THEN 0 ELSE 1 END,
+                    CASE WHEN a.status='pending' THEN 0 ELSE 1 END,
                     a.match_score DESC""", (post_id,)))
 
 
