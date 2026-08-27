@@ -110,6 +110,15 @@ nav a.nav-quiet:focus-visible {
 nav a:not(.navbtn):not(.brand) { color: var(--muted); font-size: 13.5px; }
 nav a:not(.navbtn):not(.brand):hover { color: var(--text); text-decoration: none; }
 
+/* Logging out is a POST now rather than a link, so the button borrows the
+   quiet styling the anchor above used to get. */
+nav button.logout {
+  background: none; border: none; padding: 0;
+  font: inherit; font-size: 13.5px;
+  color: var(--muted); cursor: pointer;
+}
+nav button.logout:hover { color: var(--text); filter: none; }
+
 .badge {
   font-family: var(--font-mono);
   background: #4DE0F0; color: #0A1418;
