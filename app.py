@@ -145,6 +145,16 @@ def ensure_schema():
         cur.execute("UPDATE users SET past_projects='[]' "
                     "WHERE past_projects IS NULL")
 
+    # The first demo profile was called "You (post owner)" -- a label from
+    # testing, not a name, and it shows on every post that account owns.
+    # Existing deployments are already seeded, so the rename has to happen
+    # here rather than in seed.py alone. Matching on the old label keeps it
+    # idempotent and leaves a genuine signup of the same id untouched.
+    cur.execute(db.sql("UPDATE users SET name=?, email=? "
+                       "WHERE name=? AND email=?"),
+                ("Nikhil Anand", "nikhil.anand@example.com",
+                 "You (post owner)", "owner@example.com"))
+
     c.commit()
     cur.close()
     c.close()

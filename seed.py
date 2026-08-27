@@ -31,8 +31,8 @@ CITY = "Chennai"
 DEMO_USERS = [
     {
         "id": 1,
-        "name": "You (post owner)",
-        "email": "owner@example.com",
+        "name": "Nikhil Anand",
+        "email": "nikhil.anand@example.com",
         "bio": "Backend developer building an IAM-flavoured hackathon project.",
         "role": "backend developer",
         "skills": ["python", "flask", "postgres", "rest apis", "docker", "git"],
