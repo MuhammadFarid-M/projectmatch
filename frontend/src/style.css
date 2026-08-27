@@ -570,41 +570,20 @@ button.danger:hover { color: var(--alert); border-color: var(--alert); filter: n
 }
 .hero-bg .pxs { width: 100%; height: 100%; }
 
-/* At rest the hero is just the page. Both layers are this, so the swap
-   changes nothing -- the wavefront is the whole effect. */
+/* Two states: the page's own background, and a white field. The swap
+   between them is the whole effect -- tiles arrive scattered on the way in
+   and clear the same way on the way out. */
 .hero-field { position: absolute; inset: 0; }
-
-/* Inside an aperture the same element is a white tile that flashes and
-   dissolves. Timing is inherited from the aperture that owns it, so every
-   tile stays locked to its own place in the left-to-right stagger rather
-   than firing with the rest. */
-.hero-bg .pxs__pixel-content .hero-field {
-  background: #FFFFFF;
-  animation-name: hero-tile;
-  animation-duration: inherit;
-  animation-delay: inherit;
-  animation-timing-function: inherit;
-  animation-fill-mode: both;
-}
-/* Each tile is bright for only the first stretch of its slot. The lit band
-   is (visible fraction x pixelDuration) / duration of the grid's width --
-   hold a tile lit for most of its slot and half the grid glows at once,
-   which reads as a wall rather than a wave. */
-@keyframes hero-tile {
-  0%   { opacity: 0; }
-  14%  { opacity: 1; }
-  46%  { opacity: 0; }
-  100% { opacity: 0; }
-}
+.hero-field--fill { background: rgba(255, 255, 255, .62); }
 
 /* Holds headline contrast while a tile is passing under it. */
 .hero-bg::after {
   content: '';
   position: absolute; inset: 0; z-index: 3;
   background: linear-gradient(100deg,
-    rgba(15, 17, 22, .58) 0%,
-    rgba(15, 17, 22, .26) 52%,
-    rgba(15, 17, 22, .02) 100%);
+    rgba(15, 17, 22, .66) 0%,
+    rgba(15, 17, 22, .34) 52%,
+    rgba(15, 17, 22, .08) 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {

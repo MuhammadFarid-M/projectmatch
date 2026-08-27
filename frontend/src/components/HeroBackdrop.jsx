@@ -1,39 +1,40 @@
 import PixelSwap from './PixelSwap';
 
-/* The hero's background: white pixels crossing left to right every three
- * seconds, over the page's own colour and nothing else.
+/* The hero's background: white pixels popping in at random until the area
+ * is filled, then clearing back to the page again.
  *
- * Both layers are the same empty surface, so the swap itself changes
- * nothing — what you see is the wavefront. Each aperture carries a white
- * tile that flashes and dissolves as it opens (see .hero-tile in
- * style.css), which is what turns a content swap into a travelling
- * shimmer without tinting the page.
+ * This is PixelSwap used the way it is meant to be used. One layer is the
+ * page's own background, the other is a white field, and the swap runs
+ * both ways on a timer: fill, hold a beat, clear, hold a beat. The random
+ * pattern is what makes tiles arrive scattered instead of in a front, and
+ * the long pixelDuration against a soft pixelScale is what makes each one
+ * grow in rather than snap.
  *
- * A little randomness softens the leading edge: at zero the wavefront is a
- * ruler-straight bar, which reads as a loading sweep rather than a wave.
- * The sweep still has to finish inside `interval`, or the next one is
- * skipped -- 1700ms of travel inside a 2000ms cadence leaves that margin.
+ * `duration` has to stay inside `interval` or the next sweep is skipped --
+ * 2600ms of fill inside a 2900ms cadence leaves that margin.
  */
 
-const Field = () => <div className="hero-field" />;
+const Page = () => <div className="hero-field" />;
+const White = () => <div className="hero-field hero-field--fill" />;
 
 export default function HeroBackdrop() {
   return (
     <div className="hero-bg" aria-hidden="true">
       <PixelSwap
-        firstContent={<Field />}
-        secondContent={<Field />}
-        pixelSize={40}
+        firstContent={<Page />}
+        secondContent={<White />}
+        pixelSize={64}
         gap={0}
         pixelRadius={0}
         pixelSpin={0}
-        pixelScale={0.35}
-        duration={1700}
-        pixelDuration={760}
-        pattern="left-to-right"
-        randomness={0.12}
+        pixelScale={0.5}
+        duration={2600}
+        pixelDuration={900}
+        pattern="random"
+        randomness={0}
+        fade
         trigger="auto"
-        interval={2000}
+        interval={2900}
       />
     </div>
   );
