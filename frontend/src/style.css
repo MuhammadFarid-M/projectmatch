@@ -469,10 +469,54 @@ button.danger:hover { color: var(--alert); border-color: var(--alert); filter: n
 }
 .hero h1 { font-size: 54px; margin-bottom: 18px; max-width: 21ch; }
 .hero p { max-width: 68ch; font-size: 17px; }
-.hero h1 em {
-  font-style: normal;
+/* ---------- the accent word ----------
+   It turns over every few seconds: green for the gap the team has, orange
+   for the one it is waiting on. Both faces occupy one grid cell, so the
+   box is as wide as the longer word and the line never reflows mid-flip. */
+.flip {
+  display: inline-grid;
+  perspective: 700px;
+  vertical-align: bottom;
+}
+.flip__face {
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
+  transition: transform .72s cubic-bezier(.62, .04, .3, 1);
+  transform-origin: center;
+  white-space: nowrap;
+}
+.flip__face--front { transform: rotateX(0deg); }
+.flip__face--back  { transform: rotateX(-180deg); }
+.flip--over .flip__face--front { transform: rotateX(180deg); }
+.flip--over .flip__face--back  { transform: rotateX(0deg); }
+
+.accent { font-style: normal; }
+.accent--covered {
   color: var(--covered);
   text-shadow: 0 0 26px rgba(61, 214, 140, .35);
+}
+.accent--gap {
+  color: #FF8A34;
+  text-shadow: 0 0 26px rgba(255, 138, 52, .42);
+}
+
+/* Announce the word once, rather than both faces of a decorative flip. */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flip__face { transition: none; }
+}
+
+/* White label on the hero's call to action. --action is light enough that
+   white on it alone is hard to read, so this button takes a deeper shade
+   of the same hue to carry the lighter text. */
+.hero-cta .btn {
+  color: #FFFFFF;
+  background: #5D6BE0;
 }
 .hero p {
   color: var(--muted); font-size: 16.5px; line-height: 1.65;
