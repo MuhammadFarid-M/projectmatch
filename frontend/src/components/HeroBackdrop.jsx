@@ -8,6 +8,11 @@ import PixelSwap from './PixelSwap';
  * tile that flashes and dissolves as it opens (see .hero-tile in
  * style.css), which is what turns a content swap into a travelling
  * shimmer without tinting the page.
+ *
+ * A little randomness softens the leading edge: at zero the wavefront is a
+ * ruler-straight bar, which reads as a loading sweep rather than a wave.
+ * The sweep still has to finish inside `interval`, or the next one is
+ * skipped -- 1700ms of travel inside a 2000ms cadence leaves that margin.
  */
 
 const Field = () => <div className="hero-field" />;
@@ -18,17 +23,17 @@ export default function HeroBackdrop() {
       <PixelSwap
         firstContent={<Field />}
         secondContent={<Field />}
-        pixelSize={64}
+        pixelSize={40}
         gap={0}
         pixelRadius={0}
         pixelSpin={0}
         pixelScale={0.35}
-        duration={1400}
-        pixelDuration={450}
+        duration={1700}
+        pixelDuration={760}
         pattern="left-to-right"
-        randomness={0}
+        randomness={0.12}
         trigger="auto"
-        interval={3000}
+        interval={2000}
       />
     </div>
   );
