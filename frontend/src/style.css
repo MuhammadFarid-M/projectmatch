@@ -458,7 +458,15 @@ button.danger:hover { color: var(--alert); border-color: var(--alert); filter: n
   padding: 26px 0 40px;
   border-bottom: 1px solid var(--line); margin-bottom: 30px;
 }
-.hero-inner { position: relative; z-index: 1; }
+.hero-inner {
+  position: relative; z-index: 1;
+  /* The fill is bright by design, so the type carries its own dark halo
+     rather than the tiles being dimmed to make room for it. Costs nothing
+     over the plain background and holds contrast when a tile is under it. */
+  text-shadow:
+    0 0 3px rgba(15, 17, 22, .75),
+    0 1px 16px rgba(15, 17, 22, .90);
+}
 .hero h1 { font-size: 54px; margin-bottom: 18px; max-width: 21ch; }
 .hero p { max-width: 68ch; font-size: 17px; }
 .hero h1 em {
@@ -560,12 +568,12 @@ button.danger:hover { color: var(--alert); border-color: var(--alert); filter: n
      own edges, so there is no rectangle to see. A single radial cannot do
      this -- it is still opaque where the box stops, which reads as a card. */
   -webkit-mask-image:
-    linear-gradient(90deg, transparent 0, #000 11%, #000 89%, transparent 100%),
-    linear-gradient(180deg, #000 0, #000 58%, transparent 100%);
+    linear-gradient(90deg, transparent 0, #000 4%, #000 96%, transparent 100%),
+    linear-gradient(180deg, #000 0, #000 62%, transparent 100%);
   -webkit-mask-composite: source-in;
   mask-image:
-    linear-gradient(90deg, transparent 0, #000 11%, #000 89%, transparent 100%),
-    linear-gradient(180deg, #000 0, #000 58%, transparent 100%);
+    linear-gradient(90deg, transparent 0, #000 4%, #000 96%, transparent 100%),
+    linear-gradient(180deg, #000 0, #000 62%, transparent 100%);
   mask-composite: intersect;
 }
 .hero-bg .pxs { width: 100%; height: 100%; }
@@ -574,16 +582,16 @@ button.danger:hover { color: var(--alert); border-color: var(--alert); filter: n
    between them is the whole effect -- tiles arrive scattered on the way in
    and clear the same way on the way out. */
 .hero-field { position: absolute; inset: 0; }
-.hero-field--fill { background: rgba(255, 255, 255, .62); }
+.hero-field--fill { background: rgba(255, 255, 255, .92); }
 
 /* Holds headline contrast while a tile is passing under it. */
 .hero-bg::after {
   content: '';
   position: absolute; inset: 0; z-index: 3;
   background: linear-gradient(100deg,
-    rgba(15, 17, 22, .66) 0%,
-    rgba(15, 17, 22, .34) 52%,
-    rgba(15, 17, 22, .08) 100%);
+    rgba(15, 17, 22, .58) 0%,
+    rgba(15, 17, 22, .26) 52%,
+    rgba(15, 17, 22, .04) 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {
