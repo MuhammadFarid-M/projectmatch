@@ -1,3 +1,4 @@
+import { HERO_INTERVAL, HERO_PIXEL, HERO_SWEEP } from '../heroCadence';
 import PixelSwap from './PixelSwap';
 
 /* The hero's background: a band of white pixels travelling left to right,
@@ -26,12 +27,12 @@ export default function HeroBackdrop() {
         pixelRadius={0}
         pixelSpin={0}
         pixelScale={0.5}
-        duration={1900}
-        pixelDuration={700}
+        duration={HERO_SWEEP}
+        pixelDuration={HERO_PIXEL}
         pattern="left-to-right"
         randomness={0.12}
         trigger="auto"
-        interval={2200}
+        interval={HERO_INTERVAL}
       />
     </div>
   );
