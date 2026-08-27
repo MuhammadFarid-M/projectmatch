@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { get, getVocab, qs } from '../api';
 import { plural } from '../format';
 import { useSession } from '../session';
-import PixelHeadline from '../components/PixelHeadline';
+import HeroBackdrop from '../components/HeroBackdrop';
 import PostCard from '../components/PostCard';
 import { Empty, Notice } from '../components/bits';
 
@@ -62,19 +62,22 @@ export default function Discover() {
       )}
 
       <header className="hero">
-        <PixelHeadline />
-        <p>Most teams get built out of whoever you already know. Post what the
-          team still needs and everyone here gets ranked by how much of that gap
-          they close — the skills, the free dates, the projects they have
-          actually shipped.</p>
-        {stats && (
-          <div className="hero-stats">
-            <span><b>{stats.teams}</b> {stats.teams === 1 ? 'team' : 'teams'} building right now</span>
-            <span><b>{stats.roles}</b> {stats.roles === 1 ? 'role' : 'roles'} still open</span>
+        <HeroBackdrop />
+        <div className="hero-inner">
+          <h1>Find the people your team is <em>missing</em>.</h1>
+          <p>Most teams get built out of whoever you already know. Post what the
+            team still needs and everyone here gets ranked by how much of that gap
+            they close — the skills, the free dates, the projects they have
+            actually shipped.</p>
+          {stats && (
+            <div className="hero-stats">
+              <span><b>{stats.teams}</b> {stats.teams === 1 ? 'team' : 'teams'} building right now</span>
+              <span><b>{stats.roles}</b> {stats.roles === 1 ? 'role' : 'roles'} still open</span>
+            </div>
+          )}
+          <div className="hero-cta">
+            {!me && !loading && <Link className="btn" to="/auth">Create an account</Link>}
           </div>
-        )}
-        <div className="hero-cta">
-          {!me && !loading && <Link className="btn" to="/auth">Create an account</Link>}
         </div>
       </header>
 
