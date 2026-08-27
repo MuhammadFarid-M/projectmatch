@@ -1,14 +1,15 @@
 """
 ProjectMatch -- Flask backend.
 
-Design: hybrid. Plain HTML forms POST to Flask and redirect (no JS needed
-for signup, login, profile, post creation, apply, accept). Fetch + JSON is
-used only where the page is genuinely dynamic -- the ranked lists and their
-filters, which update without a reload.
+A JSON API and nothing else. Every route that reads or writes lives under
+/api/, takes JSON, and returns JSON; the React app in frontend/ is the only
+client. Anything not under /api/ falls through to the built single-page app,
+so a hard refresh on a client-side route still works.
 
 Run:
-    python seed.py --sqlite     (once, to build the database)
-    python app.py               (then open http://127.0.0.1:5000)
+    npm --prefix frontend install
+    npm --prefix frontend run build     (or `run dev` on :5173 alongside this)
+    python app.py                       (then open http://127.0.0.1:5000)
 """
 
 import json
@@ -30,7 +31,15 @@ from vocab import ROLES, SKILLS, EVENT_TYPES, DOMAINS, LEVELS
 # you explicitly ask for it:  set DEMO_MODE=1 in your shell.
 DEMO_MODE = os.environ.get("DEMO_MODE", "").lower() in ("1", "true", "yes")
 
-app = Flask(__name__, static_folder="static", static_url_path="")
+# The frontend is a Vite build. Flask's own static route is switched off --
+# it would register the same /<path:path> rule as serve_spa below, and which
+# of the two won would be down to registration order. One handler, no
+# ambiguity: serve_spa returns the file when there is one and the app shell
+# when there isn't.
+DIST = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                    "frontend", "dist")
+
+app = Flask(__name__, static_folder=None)
 
 # In production set SECRET_KEY as an environment variable. Falling back to a
 # random value means sessions simply don't survive a restart, which is a much
@@ -230,11 +239,35 @@ def login_required(fn):
     @wraps(fn)
     def wrapper(*a, **kw):
         if not session.get("uid"):
-            if request.path.startswith("/api/"):
-                return jsonify({"error": "not logged in"}), 401
-            return redirect("/auth.html")
+            return jsonify({"error": "not logged in"}), 401
         return fn(*a, **kw)
     return wrapper
+
+
+def body():
+    """The JSON request body, or an empty dict for a malformed one."""
+    return request.get_json(silent=True) or {}
+
+
+def as_list(value):
+    """
+    Coerce a JSON field to a list of non-empty strings.
+
+    The client sends real arrays, but a hand-rolled request might send a
+    single string or null, and the scoring engine assumes lists.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        value = [value]
+    return [str(v) for v in value if str(v).strip()]
+
+
+def as_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def team_context(post):
@@ -253,98 +286,98 @@ def team_context(post):
 
 
 # =============================================================================
-# pages
+# auth
 # =============================================================================
 
-@app.route("/")
-def home():
-    return send_from_directory("static", "index.html")
-
-
-# =============================================================================
-# auth -- plain form posts, no JS
-# =============================================================================
-
-@app.route("/signup", methods=["POST"])
+@app.route("/api/signup", methods=["POST"])
 def signup():
-    f = request.form
-    email = f.get("email", "").strip().lower()
+    f = body()
+    email = str(f.get("email", "")).strip().lower()
     if not email or not f.get("password"):
-        return redirect("/auth.html?error=missing")
+        return jsonify({"error": "missing"}), 400
     if query("SELECT id FROM users WHERE email=?", (email,), one=True):
-        return redirect("/auth.html?error=exists")
+        return jsonify({"error": "exists"}), 409
 
     uid = commit(
         """INSERT INTO users (name,email,password_hash,open_to_join,
            remote_ok,willing_to_travel,hours_per_week,projects_done,
            skills,interests,experience_level)
            VALUES (?,?,?,1,1,0,10,0,'[]','[]','beginner')""",
-        (f.get("name", "").strip(), email,
+        (str(f.get("name", "")).strip(), email,
          generate_password_hash(f["password"])))
     session["uid"] = uid
-    return redirect("/onboarding.html")
+    # onboarding is where a new account goes -- an empty profile matches
+    # nothing, so there is no point dropping them on the feed first.
+    return jsonify({"ok": True, "user_id": uid, "next": "/onboarding"})
 
 
-@app.route("/login", methods=["POST"])
+@app.route("/api/login", methods=["POST"])
 def login():
-    f = request.form
+    f = body()
     u = query("SELECT * FROM users WHERE email=?",
-              (f.get("email", "").strip().lower(),), one=True)
+              (str(f.get("email", "")).strip().lower(),), one=True)
     if not u or not u["password_hash"] or \
-            not check_password_hash(u["password_hash"], f.get("password", "")):
-        return redirect("/auth.html?error=bad")
+            not check_password_hash(u["password_hash"],
+                                    str(f.get("password", ""))):
+        return jsonify({"error": "bad"}), 401
     session["uid"] = u["id"]
-    return redirect("/")
+    return jsonify({"ok": True, "user_id": u["id"]})
 
 
 if DEMO_MODE:
-    @app.route("/demo-login")
+    @app.route("/api/demo-login", methods=["GET", "POST"])
     def demo_login():
         """
         Signs you in as any seeded account without a password, so both sides
         of the product can be shown without creating accounts on stage.
         Registered only when DEMO_MODE is set -- on a live deployment this
         route does not exist at all.
-            /demo-login        -> the post owner
-            /demo-login?id=8   -> a candidate, to show the ranked feed
+
+        GET is here so the address bar still works on stage:
+            /api/demo-login?id=8   -> signed in, dropped on the feed
         """
-        session["uid"] = int(request.args.get("id", 1))
-        return redirect("/")
+        if request.method == "GET":
+            session["uid"] = as_int(request.args.get("id"), 1)
+            return redirect("/")
+        session["uid"] = as_int(body().get("id"), 1)
+        return jsonify({"ok": True, "user_id": session["uid"]})
 
 
-@app.route("/logout")
+@app.route("/api/logout", methods=["POST"])
 def logout():
     session.clear()
-    return redirect("/")
+    return jsonify({"ok": True})
 
 
 # =============================================================================
 # profile
 # =============================================================================
 
-@app.route("/profile", methods=["POST"])
+@app.route("/api/profile", methods=["POST"])
 @login_required
 def save_profile():
-    f = request.form
+    """
+    Replace the logged-in user's profile wholesale. The client always sends
+    the complete object, so a field left out is a field cleared -- there is
+    no partial-update mode to get out of sync with the form.
+    """
+    f = body()
 
-    # Past projects arrive as parallel lists: project_title[] plus
-    # project_skills_<i>[] and project_domains_<i>[] per row. A row with no
-    # title is treated as blank and dropped.
+    # A project row with no title is a blank the user never filled in.
     projects = []
-    for i, title in enumerate(f.getlist("project_title")):
-        title = (title or "").strip()
+    for row in (f.get("past_projects") or []):
+        if not isinstance(row, dict):
+            continue
+        title = str(row.get("title", "")).strip()
         if not title:
             continue
         projects.append({
             "title": title[:120],
-            "skills": f.getlist(f"project_skills_{i}"),
-            "domains": f.getlist(f"project_domains_{i}"),
-            "outcome": f.getlist("project_outcome")[i]
-                       if i < len(f.getlist("project_outcome")) else "completed",
-            "duration": f.getlist("project_duration")[i]
-                        if i < len(f.getlist("project_duration")) else "weeks",
-            "link": (f.getlist("project_link")[i]
-                     if i < len(f.getlist("project_link")) else "").strip()[:300],
+            "skills": as_list(row.get("skills")),
+            "domains": as_list(row.get("domains")),
+            "outcome": row.get("outcome") or "completed",
+            "duration": row.get("duration") or "weeks",
+            "link": str(row.get("link") or "").strip()[:300],
         })
 
     commit(
@@ -354,9 +387,10 @@ def save_profile():
            open_to_join=?, available_from=?, available_to=?, github=?,
            linkedin=? WHERE id=?""",
         (f.get("name"), f.get("bio"), f.get("role"),
-         json.dumps(f.getlist("skills")), json.dumps(f.getlist("interests")),
-         f.get("experience_level", "beginner"),
-         int(f.get("hours_per_week") or 0), len(projects),
+         json.dumps(as_list(f.get("skills"))),
+         json.dumps(as_list(f.get("interests"))),
+         f.get("experience_level") or "beginner",
+         as_int(f.get("hours_per_week")), len(projects),
          json.dumps(projects),
          f.get("location"), 1 if f.get("remote_ok") else 0,
          1 if f.get("willing_to_travel") else 0,
@@ -364,45 +398,46 @@ def save_profile():
          f.get("available_from") or None, f.get("available_to") or None,
          f.get("github"), f.get("linkedin"), session["uid"]))
 
-    if f.get("onboarding"):
-        return redirect("/?welcome=1")
-    return redirect("/profile.html?saved=1")
+    return jsonify({"ok": True})
 
 
 # =============================================================================
 # posts
 # =============================================================================
 
-@app.route("/posts", methods=["POST"])
+@app.route("/api/posts", methods=["POST"])
 @login_required
 def create_post():
-    f = request.form
+    """Create a post and its role slots. Slots arrive as a list of objects."""
+    f = body()
+    if not str(f.get("title", "")).strip():
+        return jsonify({"error": "a title is required"}), 400
+
     post_id = commit(
         """INSERT INTO posts (owner_id,title,description,event_type,domains,
            starts_on,ends_on,location,remote_ok,hours_needed,status,expires_at)
            VALUES (?,?,?,?,?,?,?,?,?,?,'open',?)""",
         (session["uid"], f.get("title"), f.get("description"),
-         f.get("event_type"), json.dumps(f.getlist("domains")),
+         f.get("event_type"), json.dumps(as_list(f.get("domains"))),
          f.get("starts_on") or None, f.get("ends_on") or f.get("starts_on"),
          f.get("location"), 1 if f.get("remote_ok") else 0,
-         int(f.get("hours_needed") or 0), f.get("ends_on") or None))
+         as_int(f.get("hours_needed")), f.get("ends_on") or None))
 
-    # role slots arrive as parallel lists: role[], must_have_0[], etc.
-    for i, role in enumerate(f.getlist("role")):
-        if not role:
+    for slot in (f.get("slots") or []):
+        if not isinstance(slot, dict) or not slot.get("role"):
             continue
         commit(
             """INSERT INTO slots (post_id,role,must_have,nice_to_have,
                min_level) VALUES (?,?,?,?,?)""",
-            (post_id, role, json.dumps(f.getlist(f"must_have_{i}")),
-             json.dumps(f.getlist(f"nice_to_have_{i}")),
-             f.getlist("min_level")[i] if i < len(f.getlist("min_level"))
-             else "beginner"))
+            (post_id, slot["role"],
+             json.dumps(as_list(slot.get("must_have"))),
+             json.dumps(as_list(slot.get("nice_to_have"))),
+             slot.get("min_level") or "beginner"))
 
-    return redirect(f"/post.html?id={post_id}")
+    return jsonify({"ok": True, "post_id": post_id})
 
 
-@app.route("/posts/<int:post_id>/edit", methods=["POST"])
+@app.route("/api/posts/<int:post_id>/edit", methods=["POST"])
 @login_required
 def edit_post(post_id):
     """
@@ -413,48 +448,46 @@ def edit_post(post_id):
     edited, added, or removed.
     """
     post = get_post(post_id)
-    if not post or post["owner_id"] != session["uid"]:
-        return redirect("/")
+    if not post:
+        return jsonify({"error": "not found"}), 404
+    if post["owner_id"] != session["uid"]:
+        return jsonify({"error": "not your post"}), 403
 
-    f = request.form
+    f = body()
     commit(
         """UPDATE posts SET title=?, description=?, event_type=?, domains=?,
            starts_on=?, ends_on=?, location=?, remote_ok=?, hours_needed=?,
            expires_at=? WHERE id=?""",
         (f.get("title"), f.get("description"), f.get("event_type"),
-         json.dumps(f.getlist("domains")),
+         json.dumps(as_list(f.get("domains"))),
          f.get("starts_on") or None, f.get("ends_on") or f.get("starts_on"),
          f.get("location"), 1 if f.get("remote_ok") else 0,
-         int(f.get("hours_needed") or 0),
+         as_int(f.get("hours_needed")),
          f.get("ends_on") or None, post_id))
 
     filled_ids = {s["id"] for s in post["slots"] if s["filled_by"]}
     kept = set(filled_ids)
 
-    slot_ids = f.getlist("slot_id")
-    roles = f.getlist("role")
-    levels = f.getlist("min_level")
-
-    for i, role in enumerate(roles):
-        if not role:
+    for slot in (f.get("slots") or []):
+        if not isinstance(slot, dict) or not slot.get("role"):
             continue
-        sid = slot_ids[i] if i < len(slot_ids) else ""
-        must = json.dumps(f.getlist(f"must_have_{i}"))
-        nice = json.dumps(f.getlist(f"nice_to_have_{i}"))
-        lvl = levels[i] if i < len(levels) else "beginner"
+        sid = as_int(slot.get("id"), 0)
+        must = json.dumps(as_list(slot.get("must_have")))
+        nice = json.dumps(as_list(slot.get("nice_to_have")))
+        lvl = slot.get("min_level") or "beginner"
 
-        if sid and int(sid) in filled_ids:
+        if sid and sid in filled_ids:
             continue                      # never touch a filled slot
         if sid:
             commit("""UPDATE slots SET role=?, must_have=?, nice_to_have=?,
                       min_level=? WHERE id=? AND post_id=?""",
-                   (role, must, nice, lvl, int(sid), post_id))
-            kept.add(int(sid))
+                   (slot["role"], must, nice, lvl, sid, post_id))
+            kept.add(sid)
         else:
             new_id = commit(
                 """INSERT INTO slots (post_id,role,must_have,nice_to_have,
                    min_level) VALUES (?,?,?,?,?)""",
-                (post_id, role, must, nice, lvl))
+                (post_id, slot["role"], must, nice, lvl))
             kept.add(new_id)
 
     # drop open slots the owner removed, and any applications hanging off them
@@ -464,7 +497,7 @@ def edit_post(post_id):
             commit("DELETE FROM slots WHERE id=?", (s["id"],))
 
     rescore_pending(post_id)
-    return redirect(f"/post.html?id={post_id}&updated=1")
+    return jsonify({"ok": True, "post_id": post_id})
 
 
 def rescore_pending(post_id):
@@ -490,27 +523,35 @@ def rescore_pending(post_id):
                (scored["score"] if scored else 0, a["id"]))
 
 
-@app.route("/posts/<int:post_id>/status", methods=["POST"])
+@app.route("/api/posts/<int:post_id>/status", methods=["POST"])
 @login_required
 def set_post_status(post_id):
     """Close a post so it stops appearing in browse and feeds, or reopen it."""
     post = query("SELECT owner_id FROM posts WHERE id=?", (post_id,), one=True)
-    if not post or post["owner_id"] != session["uid"]:
-        return redirect("/")
-    status = "closed" if request.form.get("status") == "closed" else "open"
+    if not post:
+        return jsonify({"error": "not found"}), 404
+    if post["owner_id"] != session["uid"]:
+        return jsonify({"error": "not your post"}), 403
+    status = "closed" if body().get("status") == "closed" else "open"
     commit("UPDATE posts SET status=? WHERE id=?", (status, post_id))
-    return redirect("/my-posts.html")
+    return jsonify({"ok": True, "status": status})
 
 
-@app.route("/apply", methods=["POST"])
+@app.route("/api/apply", methods=["POST"])
 @login_required
 def apply():
-    f = request.form
-    post_id, slot_id = int(f["post_id"]), int(f["slot_id"])
+    f = body()
+    post_id, slot_id = as_int(f.get("post_id"), 0), as_int(f.get("slot_id"), 0)
     post = get_post(post_id)
+    if not post:
+        return jsonify({"error": "no such post"}), 404
     slot = next((s for s in post["slots"] if s["id"] == slot_id), None)
-    me = current_user()
+    if not slot:
+        return jsonify({"error": "no such slot"}), 404
+    if slot["filled_by"]:
+        return jsonify({"error": "that role is already filled"}), 409
 
+    me = current_user()
     team_skills, team_ids = team_context(post)
     scored = score_candidate(me, post, slot, team_skills, team_ids)
 
@@ -518,14 +559,15 @@ def apply():
         commit(
             """INSERT INTO applications (post_id,slot_id,user_id,note,
                match_score) VALUES (?,?,?,?,?)""",
-            (post_id, slot_id, me["id"], f.get("note", "")[:500],
+            (post_id, slot_id, me["id"], str(f.get("note", ""))[:500],
              scored["score"] if scored else 0))
     except db.UNIQUE_ERRORS:
         conn().rollback()   # Postgres blocks further writes until rolled back
-    return redirect(f"/post.html?id={post_id}&applied=1")
+        return jsonify({"ok": True, "duplicate": True})
+    return jsonify({"ok": True})
 
 
-@app.route("/invite", methods=["POST"])
+@app.route("/api/invite", methods=["POST"])
 @login_required
 def invite():
     """
@@ -533,18 +575,20 @@ def invite():
     application row as a normal apply, but flagged direction='invited' --
     so the decision sits with the candidate instead of the owner.
     """
-    f = request.form
-    post_id, slot_id = int(f["post_id"]), int(f["slot_id"])
-    user_id = int(f["user_id"])
+    f = body()
+    post_id, slot_id = as_int(f.get("post_id"), 0), as_int(f.get("slot_id"), 0)
+    user_id = as_int(f.get("user_id"), 0)
 
     post = get_post(post_id)
-    if not post or post["owner_id"] != session["uid"]:
-        return redirect("/")
+    if not post:
+        return jsonify({"error": "no such post"}), 404
+    if post["owner_id"] != session["uid"]:
+        return jsonify({"error": "not your post"}), 403
 
     slot = next((s for s in post["slots"] if s["id"] == slot_id), None)
     candidate = query("SELECT * FROM users WHERE id=?", (user_id,), one=True)
     if not slot or not candidate:
-        return redirect(f"/post.html?id={post_id}")
+        return jsonify({"error": "no such slot or person"}), 404
 
     team_skills, team_ids = team_context(post)
     scored = score_candidate(candidate, post, slot, team_skills, team_ids)
@@ -554,21 +598,22 @@ def invite():
             """INSERT INTO applications (post_id,slot_id,user_id,note,
                status,direction,match_score) VALUES (?,?,?,?,?,?,?)""",
             (post_id, slot_id, user_id,
-             f.get("note", "")[:500], "pending", "invited",
+             str(f.get("note", ""))[:500], "pending", "invited",
              scored["score"] if scored else 0))
     except db.UNIQUE_ERRORS:
         conn().rollback()   # already invited, or they already applied
-    return redirect(f"/post.html?id={post_id}&invited=1")
+        return jsonify({"ok": True, "duplicate": True})
+    return jsonify({"ok": True})
 
 
-@app.route("/invitations/<int:app_id>/respond", methods=["POST"])
+@app.route("/api/invitations/<int:app_id>/respond", methods=["POST"])
 @login_required
 def respond_invite(app_id):
     """Candidate accepts or declines an invitation."""
-    decision = request.form.get("decision")
+    decision = body().get("decision")
     a = query("SELECT * FROM applications WHERE id=?", (app_id,), one=True)
     if not a or a["user_id"] != session["uid"] or a["direction"] != "invited":
-        return redirect("/")
+        return jsonify({"error": "no such invitation"}), 404
 
     if decision == "accept":
         commit("UPDATE applications SET status='accepted' WHERE id=?", (app_id,))
@@ -583,7 +628,7 @@ def respond_invite(app_id):
     else:
         commit("UPDATE applications SET status='declined' WHERE id=?", (app_id,))
 
-    return redirect("/invites.html?done=1")
+    return jsonify({"ok": True})
 
 
 @app.route("/api/invites")
@@ -686,15 +731,17 @@ def api_my_applications():
     return jsonify(rows)
 
 
-@app.route("/applications/<int:app_id>/decide", methods=["POST"])
+@app.route("/api/applications/<int:app_id>/decide", methods=["POST"])
 @login_required
 def decide(app_id):
-    decision = request.form.get("decision")
+    decision = body().get("decision")
     a = query("""SELECT a.*, p.owner_id FROM applications a
                  JOIN posts p ON p.id = a.post_id WHERE a.id=?""",
               (app_id,), one=True)
-    if not a or a["owner_id"] != session["uid"]:
-        return redirect("/")
+    if not a:
+        return jsonify({"error": "no such application"}), 404
+    if a["owner_id"] != session["uid"]:
+        return jsonify({"error": "not your post"}), 403
 
     # seen=0 makes the outcome show up as a notification for the applicant
     if decision == "accept":
@@ -713,7 +760,7 @@ def decide(app_id):
         commit("UPDATE applications SET status='rejected', seen=0 WHERE id=?",
                (app_id,))
 
-    return redirect(f"/post.html?id={a['post_id']}")
+    return jsonify({"ok": True})
 
 
 # =============================================================================
@@ -937,6 +984,33 @@ def api_user(user_id):
         if not shared:
             u.pop("email", None)
     return jsonify(u)
+
+
+# =============================================================================
+# the single-page app
+# =============================================================================
+
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_spa(path):
+    """
+    Serve a built asset when one exists at that path, and index.html when
+    one doesn't -- which is what makes a hard refresh on /posts/3 work
+    instead of 404ing. /api/ is excluded so a mistyped endpoint reports
+    itself as missing rather than silently returning the HTML shell.
+    """
+    if path.startswith("api/"):
+        return jsonify({"error": "not found"}), 404
+
+    index = os.path.join(DIST, "index.html")
+    if not os.path.isfile(index):
+        return ("The frontend has not been built yet. Run "
+                "`npm --prefix frontend install && "
+                "npm --prefix frontend run build`.", 503)
+
+    if path and os.path.isfile(os.path.join(DIST, path)):
+        return send_from_directory(DIST, path)
+    return send_from_directory(DIST, "index.html")
 
 
 if __name__ == "__main__":

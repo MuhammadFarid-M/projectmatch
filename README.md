@@ -71,12 +71,30 @@ Teams can invite candidates directly; candidates can apply. Both create the same
 record, distinguished by a `direction` column — they differ only in who
 initiated and therefore who decides.
 
+## How it is put together
+
+A Flask JSON API and a React single-page app, with nothing shared between them
+but the JSON.
+
+Everything the server does lives under `/api/` and speaks JSON in both
+directions. Anything else falls through to the built frontend, so a hard
+refresh on `/posts/3` loads the app rather than 404ing. Sessions are ordinary
+Flask cookies: the frontend is served from the same origin in production and
+proxied through Vite in development, so the cookie rides along by itself and
+there is no CORS layer and no token to keep in sync.
+
+The scoring engine is deliberately unaware of all of it. `match.py` imports
+nothing from Flask and touches no database, which is what lets it be exercised
+straight from a terminal.
+
 ## Running it locally
 
 ```bash
 pip install -r requirements.txt
-python seed.py --sqlite     # builds projectmatch.db with 54 demo profiles
-DEMO_MODE=1 FLASK_DEBUG=1 python app.py
+npm --prefix frontend install
+npm --prefix frontend run build          # writes frontend/dist
+python seed.py --sqlite                  # builds projectmatch.db with 54 demo profiles
+DEMO_MODE=1 FLASK_DEBUG=1 python app.py  # http://127.0.0.1:5000
 ```
 
 On Windows PowerShell:
@@ -85,9 +103,17 @@ On Windows PowerShell:
 $env:DEMO_MODE=1; $env:FLASK_DEBUG=1; python app.py
 ```
 
-With `DEMO_MODE` on you can click **Demo login** to enter as the post owner, or
-visit `/demo-login?id=2` to enter as a candidate. Seeded users 1–9 are
-hand-written to demonstrate specific scoring behaviour; 10–54 are generated.
+While working on the frontend, run Vite instead of rebuilding on every change:
+
+```bash
+python app.py                     # :5000, the API
+npm --prefix frontend run dev     # :5173, hot reload, proxies /api to :5000
+```
+
+With `DEMO_MODE` on, visiting `/api/demo-login` signs you in as the post owner
+and `/api/demo-login?id=2` as a candidate — no password, straight into either
+side of the product. Seeded users 1–9 are hand-written to demonstrate specific
+scoring behaviour; 10–54 are generated.
 
 ## Deploying
 
@@ -144,6 +170,21 @@ Render Postgres databases expire 30 days after creation.
 4. Under **Environment**, add `SECRET_KEY` with a long random value. Do not add
    `DEMO_MODE` or `FLASK_DEBUG`.
 
+**`frontend/dist` is committed to the repo, on purpose.** The build command
+above installs Python and nothing else, so there is no Node step on the host to
+produce it. The cost is that a UI change is not deployed until the build is
+rebuilt and committed with it:
+
+```bash
+npm --prefix frontend run build && git add frontend/dist
+```
+
+If you would rather Render build the frontend itself, change the build command
+to `npm --prefix frontend ci && npm --prefix frontend run build && pip install
+-r requirements.txt` and add `frontend/dist` to `.gitignore`. That removes the
+stale-build failure mode and adds a dependency on Node being present in the
+build image.
+
 Render's free tier has an ephemeral filesystem and sleeps after inactivity, so
 the database resets on restart and reseeds itself. Fine for a demo; attach a
 persistent disk and point `PROJECTMATCH_DB` at it if data needs to last.
@@ -161,9 +202,11 @@ python try_match.py
 | `match.py` | The scoring engine. Pure functions, no database, no framework. |
 | `vocab.py` | Controlled vocabulary — roles, skills, event types, domains. |
 | `seed.py` | Generates demo data and the SQLite schema. |
-| `app.py` | Flask server: form routes, JSON API, session auth. |
+| `app.py` | Flask server: the JSON API, session auth, and the SPA fallback. |
+| `db.py` | One interface over SQLite and Postgres. |
 | `try_match.py` | Terminal harness for the scorer. |
-| `static/` | Frontend — plain HTML, one stylesheet, vanilla JS. |
+| `frontend/` | React app (Vite). `src/pages` are the routes, `src/components` the shared pieces. |
+| `frontend/dist/` | The build Flask serves. Committed — see Deploying. |
 
 Skills are picked from a fixed vocabulary rather than typed freely, which turns
 matching into set operations and avoids an entire class of string-normalisation
@@ -187,3 +230,8 @@ Being explicit about these rather than pretending otherwise:
 - **SQLite with the default file path** is per-instance and will reset on hosts
   with an ephemeral filesystem. Point `PROJECTMATCH_DB` at a persistent volume,
   or move to Postgres, if data needs to survive.
+- **The committed frontend build can go stale.** Nothing checks that
+  `frontend/dist` matches `frontend/src`; if a UI change is pushed without a
+  rebuild, the deploy silently serves the previous one.
+- **No automated tests** beyond `try_match.py`, which exercises the scorer and
+  not the API or the UI.

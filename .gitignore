@@ -2,6 +2,13 @@
 projectmatch.db
 seed_data.json
 
+# Frontend build inputs. frontend/dist is deliberately NOT ignored -- Render's
+# build command installs Python only, so the committed build is what gets
+# served. Rebuild with `npm --prefix frontend run build` before committing UI
+# changes.
+frontend/node_modules/
+frontend/.vite/
+
 # Python
 __pycache__/
 *.py[cod]
