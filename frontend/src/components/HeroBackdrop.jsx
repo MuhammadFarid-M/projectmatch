@@ -5,13 +5,12 @@ import PixelSwap from './PixelSwap';
  *
  * This is PixelSwap used the way it is meant to be used. One layer is the
  * page's own background, the other is a white field, and the swap runs
- * both ways on a timer: fill, hold a beat, clear, hold a beat. The random
- * pattern is what makes tiles arrive scattered instead of in a front, and
- * the long pixelDuration against a soft pixelScale is what makes each one
- * grow in rather than snap.
+ * both ways on a timer: fill, hold a beat, clear, hold a beat. Tiles arrive
+ * in a front travelling left to right, and the long pixelDuration against a
+ * soft pixelScale is what makes each one grow in rather than snap.
  *
  * `duration` has to stay inside `interval` or the next sweep is skipped --
- * 2600ms of fill inside a 2900ms cadence leaves that margin.
+ * 1900ms of fill inside a 2200ms cadence leaves that margin.
  */
 
 const Page = () => <div className="hero-field" />;
@@ -28,13 +27,13 @@ export default function HeroBackdrop() {
         pixelRadius={0}
         pixelSpin={0}
         pixelScale={0.5}
-        duration={2600}
-        pixelDuration={900}
-        pattern="random"
+        duration={1900}
+        pixelDuration={700}
+        pattern="left-to-right"
         randomness={0}
         fade
         trigger="auto"
-        interval={2900}
+        interval={2200}
       />
     </div>
   );
