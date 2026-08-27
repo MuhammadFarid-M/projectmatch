@@ -11,7 +11,7 @@
   <div id="setup-notice"></div>
 
   <header class="hero">
-      <h1>Find the people your team is <em>missing</em>.</h1>
+      <h1 id="hero-headline">Find the people your team is <em>missing</em>.</h1>
       <p>Most teams get built out of whoever you already know. Post what the
         team still needs and everyone here gets ranked by how much of that gap
         they close &mdash; the skills, the free dates, the projects they have
@@ -47,6 +47,7 @@
   <div id="browse"></div>
 </div>
 
+<script src="/pixelswap.js"></script>
 <script src="/app.js"></script>
 <script>
 async function loadFeed() {
@@ -99,10 +100,35 @@ async function loadBrowse() {
     document.getElementById(id).addEventListener('change', loadBrowse));
 
   renderCta();
+  startHeadline();
   await loadFeed();
   await loadBrowse();
   await loadStats();
 })();
+
+/* Two phrases making the same argument from opposite ends: what the product
+   does, and what it replaces. The accent word carries the meaning — green
+   for what you gain, amber for the limitation you are stuck with today. */
+const HEADLINES = [
+  { html: 'Find the people your team is <em>missing</em>.' },
+  { html: 'Your next teammate isn\u2019t in your <em class="alt">contacts</em>.' }
+];
+
+function startHeadline() {
+  const el = document.getElementById('hero-headline');
+  if (!el || typeof PixelSwap === 'undefined') return;
+  const swap = new PixelSwap(el, {
+    pixelSize: 34,
+    gap: 2,
+    pixelScale: 0.28,
+    duration: 900,
+    pixelDuration: 380,
+    pattern: 'diagonal',
+    randomness: 0.55,
+    interval: 2000        // time each phrase stays on screen
+  });
+  swap.start(HEADLINES);
+}
 
 function renderCta() {
   const el = document.getElementById('hero-cta');
