@@ -540,9 +540,8 @@ button.danger:hover { color: var(--alert); border-color: var(--alert); filter: n
 }
 
 /* ---------- hero backdrop ----------
-   Amber is a gap, green is a skill covered -- the same two colours the
-   coverage meter uses. The wave turning one into the other is the product's
-   whole claim, running quietly behind the headline. */
+   White pixels crossing the hero, left to right, over the page's own
+   background and no other colour. */
 .hero-bg {
   position: absolute;
   /* Overhangs the column so the mask's fade lands outside the text area
@@ -571,43 +570,35 @@ button.danger:hover { color: var(--alert); border-color: var(--alert); filter: n
 }
 .hero-bg .pxs { width: 100%; height: 100%; }
 
-.hero-field {
-  position: absolute; inset: 0;
-  background-image:
-    /* 64px lattice, matching pixelSize, so the wave flips visible cells */
-    repeating-linear-gradient(90deg, var(--rule) 0 1px, transparent 1px 64px),
-    repeating-linear-gradient(0deg,  var(--rule) 0 1px, transparent 1px 64px),
-    repeating-conic-gradient(var(--cell) 0% 25%, var(--clear) 0% 50%),
-    radial-gradient(96% 128% at 10% 16%, var(--wash-a) 0%, var(--clear) 70%),
-    radial-gradient(86% 120% at 84% 90%, var(--wash-b) 0%, var(--clear) 66%);
-  /* the checkerboard is two cells wide, so its cells land on the 64px grid */
-  background-size: auto, auto, 128px 128px, auto, auto;
+/* At rest the hero is just the page. Both layers are this, so the swap
+   changes nothing -- the wavefront is the whole effect. */
+.hero-field { position: absolute; inset: 0; }
+
+/* Inside an aperture the same element is a white tile that flashes and
+   dissolves. Timing is inherited from the aperture that owns it, so every
+   tile stays locked to its own place in the left-to-right stagger rather
+   than firing with the rest. */
+.hero-bg .pxs__pixel-content .hero-field {
+  background: #FFFFFF;
+  animation-name: hero-tile;
+  animation-duration: inherit;
+  animation-delay: inherit;
+  animation-timing-function: inherit;
+  animation-fill-mode: both;
 }
-/* Amber sits closer to the page's own warmth than green does, so it needs
-   the heavier hand to read as an equal-and-opposite state. */
-.hero-field--gap {
-  --clear: rgba(240, 149, 90, 0);
-  --rule: rgba(240, 149, 90, .20);
-  --cell: rgba(240, 149, 90, .10);
-  --wash-a: rgba(240, 149, 90, .46);
-  --wash-b: rgba(240, 149, 90, .26);
-}
-.hero-field--covered {
-  --clear: rgba(61, 214, 140, 0);
-  --rule: rgba(61, 214, 140, .18);
-  --cell: rgba(61, 214, 140, .09);
-  --wash-a: rgba(61, 214, 140, .38);
-  --wash-b: rgba(61, 214, 140, .22);
+@keyframes hero-tile {
+  0%   { opacity: 0; }
+  30%  { opacity: .88; }
+  100% { opacity: 0; }
 }
 
-/* Keeps headline contrast fixed no matter which half of the wave is under
-   it -- the field is texture, not something the text has to compete with. */
+/* Holds headline contrast while a tile is passing under it. */
 .hero-bg::after {
   content: '';
   position: absolute; inset: 0; z-index: 3;
   background: linear-gradient(100deg,
-    rgba(15, 17, 22, .70) 0%,
-    rgba(15, 17, 22, .38) 50%,
+    rgba(15, 17, 22, .40) 0%,
+    rgba(15, 17, 22, .20) 50%,
     rgba(15, 17, 22, .04) 100%);
 }
 

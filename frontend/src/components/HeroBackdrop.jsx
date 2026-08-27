@@ -1,26 +1,23 @@
 import PixelSwap from './PixelSwap';
 
-/* The hero's background, and an argument made without words.
+/* The hero's background: white pixels crossing left to right every three
+ * seconds, over the page's own colour and nothing else.
  *
- * The field alternates between the two colours the whole product runs on:
- * amber for a gap, green for a skill covered. A wave crosses left to right
- * every two seconds turning one into the other, which is what the platform
- * does — you post the holes, and they get filled.
- *
- * It sits behind the headline, so it stays quiet: low alphas, no hard
- * edges, and a scrim over the top to keep text contrast where it needs to
- * be. The grid lines are drawn at the same 64px as `pixelSize`, so the wave
- * flips cells the eye can already see rather than an invisible lattice.
+ * Both layers are the same empty surface, so the swap itself changes
+ * nothing — what you see is the wavefront. Each aperture carries a white
+ * tile that flashes and dissolves as it opens (see .hero-tile in
+ * style.css), which is what turns a content swap into a travelling
+ * shimmer without tinting the page.
  */
 
-const Field = ({ tone }) => <div className={`hero-field hero-field--${tone}`} />;
+const Field = () => <div className="hero-field" />;
 
 export default function HeroBackdrop() {
   return (
     <div className="hero-bg" aria-hidden="true">
       <PixelSwap
-        firstContent={<Field tone="gap" />}
-        secondContent={<Field tone="covered" />}
+        firstContent={<Field />}
+        secondContent={<Field />}
         pixelSize={64}
         gap={0}
         pixelRadius={0}
@@ -30,9 +27,8 @@ export default function HeroBackdrop() {
         pixelDuration={450}
         pattern="left-to-right"
         randomness={0}
-        fade
         trigger="auto"
-        interval={2000}
+        interval={3000}
       />
     </div>
   );
