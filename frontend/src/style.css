@@ -454,9 +454,11 @@ button.danger:hover { color: var(--alert); border-color: var(--alert); filter: n
    competes for attention. Live counts, not decoration -- an empty
    platform should look empty. */
 .hero {
+  position: relative; isolation: isolate;
   padding: 26px 0 40px;
   border-bottom: 1px solid var(--line); margin-bottom: 30px;
 }
+.hero-inner { position: relative; z-index: 1; }
 .hero h1 { font-size: 54px; margin-bottom: 18px; max-width: 21ch; }
 .hero p { max-width: 68ch; font-size: 17px; }
 .hero h1 em {
@@ -504,42 +506,111 @@ button.danger:hover { color: var(--alert); border-color: var(--alert); filter: n
 .hero-demo .meter { margin-top: 7px; }
 .hero-cta { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
 
-/* ---------- PixelSwap: rotating hero headline ----------
-   The stage holds the phrase; the grid holds the transient pixel apertures.
-   A fixed min-height stops the page reflowing when phrases differ in length. */
-.pxs {
-  position: relative;
-  isolation: isolate;
-  min-height: 2.3em;
-}
-.pxs__stage, .pxs__grid { position: relative; }
+/* ---------- PixelSwap ----------
+   The resting layer sits in flow; the grid of transient apertures is laid
+   over it and never takes pointer events, so whatever is behind stays
+   clickable mid-sweep. */
+.pxs { position: relative; isolation: isolate; }
+.pxs__layer { width: 100%; height: 100%; }
 .pxs__grid {
   position: absolute; inset: 0;
   z-index: 2; pointer-events: none;
 }
-.pxs__layer { width: 100%; }
-.pxs__layer--pending { visibility: hidden; }
 
 .pxs__pixel {
   position: absolute;
   overflow: hidden;
-  opacity: 0;
   contain: paint;
   will-change: transform, opacity;
 }
-.pxs__pixel-content { position: absolute; }
+.pxs__pixel-content { position: absolute; display: block; }
 
-/* the two accent words, using colours the site already uses */
-.hero .pxs em {
-  font-style: normal;
-  color: var(--covered);
-  text-shadow: 0 0 26px rgba(61, 214, 140, .3);
+/* The aperture opens; its copy of the incoming layer scales by the
+   reciprocal about the same point, so the image itself never moves. */
+@keyframes pxs-aperture {
+  from {
+    transform: scale(var(--pxs-scale)) rotate(var(--pxs-spin));
+    opacity: var(--pxs-opacity);
+  }
+  to { transform: scale(1) rotate(0deg); opacity: 1; }
 }
-.hero .pxs em.alt {
-  color: var(--gap);
-  text-shadow: 0 0 26px rgba(240, 149, 90, .3);
+@keyframes pxs-content {
+  from { transform: scale(calc(1 / var(--pxs-scale))); }
+  to   { transform: scale(1); }
+}
+
+/* ---------- hero backdrop ----------
+   Amber is a gap, green is a skill covered -- the same two colours the
+   coverage meter uses. The wave turning one into the other is the product's
+   whole claim, running quietly behind the headline. */
+.hero-bg {
+  position: absolute;
+  /* Overhangs the column so the mask's fade lands outside the text area
+     rather than across it -- but never past the viewport, or the page
+     picks up a horizontal scrollbar on narrow screens. `50vw - 50%` is
+     exactly the gutter between this element's edge and the window's, so
+     the overhang tops out there and no breakpoint has to guess at it. */
+  top: -20px;
+  bottom: 0;
+  left: calc(-1 * min(80px, 50vw - 50%));
+  right: calc(-1 * min(80px, 50vw - 50%));
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* Two axes intersected: the field reaches zero exactly at the element's
+     own edges, so there is no rectangle to see. A single radial cannot do
+     this -- it is still opaque where the box stops, which reads as a card. */
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0, #000 11%, #000 89%, transparent 100%),
+    linear-gradient(180deg, #000 0, #000 58%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent 0, #000 11%, #000 89%, transparent 100%),
+    linear-gradient(180deg, #000 0, #000 58%, transparent 100%);
+  mask-composite: intersect;
+}
+.hero-bg .pxs { width: 100%; height: 100%; }
+
+.hero-field {
+  position: absolute; inset: 0;
+  background-image:
+    /* 64px lattice, matching pixelSize, so the wave flips visible cells */
+    repeating-linear-gradient(90deg, var(--rule) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(0deg,  var(--rule) 0 1px, transparent 1px 64px),
+    repeating-conic-gradient(var(--cell) 0% 25%, var(--clear) 0% 50%),
+    radial-gradient(96% 128% at 10% 16%, var(--wash-a) 0%, var(--clear) 70%),
+    radial-gradient(86% 120% at 84% 90%, var(--wash-b) 0%, var(--clear) 66%);
+  /* the checkerboard is two cells wide, so its cells land on the 64px grid */
+  background-size: auto, auto, 128px 128px, auto, auto;
+}
+/* Amber sits closer to the page's own warmth than green does, so it needs
+   the heavier hand to read as an equal-and-opposite state. */
+.hero-field--gap {
+  --clear: rgba(240, 149, 90, 0);
+  --rule: rgba(240, 149, 90, .20);
+  --cell: rgba(240, 149, 90, .10);
+  --wash-a: rgba(240, 149, 90, .46);
+  --wash-b: rgba(240, 149, 90, .26);
+}
+.hero-field--covered {
+  --clear: rgba(61, 214, 140, 0);
+  --rule: rgba(61, 214, 140, .18);
+  --cell: rgba(61, 214, 140, .09);
+  --wash-a: rgba(61, 214, 140, .38);
+  --wash-b: rgba(61, 214, 140, .22);
+}
+
+/* Keeps headline contrast fixed no matter which half of the wave is under
+   it -- the field is texture, not something the text has to compete with. */
+.hero-bg::after {
+  content: '';
+  position: absolute; inset: 0; z-index: 3;
+  background: linear-gradient(100deg,
+    rgba(15, 17, 22, .70) 0%,
+    rgba(15, 17, 22, .38) 50%,
+    rgba(15, 17, 22, .04) 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pxs__pixel { display: none; }
+  .pxs__grid { display: none; }
 }
