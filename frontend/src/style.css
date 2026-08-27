@@ -578,11 +578,34 @@ button.danger:hover { color: var(--alert); border-color: var(--alert); filter: n
 }
 .hero-bg .pxs { width: 100%; height: 100%; }
 
-/* Two states: the page's own background, and a white field. The swap
-   between them is the whole effect -- tiles arrive scattered on the way in
-   and clear the same way on the way out. */
+/* At rest the hero is just the page -- both layers are this, so the swap
+   changes nothing and the screen is never left filled. */
 .hero-field { position: absolute; inset: 0; }
-.hero-field--fill { background: rgba(255, 255, 255, .92); }
+
+/* Inside an aperture the same element is a white tile that flashes and
+   dissolves, which is what makes the band travel instead of accumulate.
+   Timing is inherited from the aperture that owns it, so each tile keeps
+   its own place in the left-to-right stagger rather than firing with the
+   rest of the grid at once. */
+.hero-bg .pxs__pixel-content .hero-field {
+  background: #FFFFFF;
+  animation-name: hero-tile;
+  animation-duration: inherit;
+  animation-delay: inherit;
+  animation-timing-function: inherit;
+  animation-fill-mode: both;
+}
+
+/* Each tile is bright for only the first stretch of its slot. The lit band
+   is (visible fraction x pixelDuration) / duration of the grid's width --
+   hold a tile lit for most of its slot and half the grid glows at once,
+   which reads as a wall rather than a wave. */
+@keyframes hero-tile {
+  0%   { opacity: 0; }
+  16%  { opacity: 1; }
+  48%  { opacity: 0; }
+  100% { opacity: 0; }
+}
 
 /* Holds headline contrast while a tile is passing under it. */
 .hero-bg::after {
