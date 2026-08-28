@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { post } from '../api';
 import { useSession } from '../session';
+import SpecularButton from './SpecularButton';
 
 /* Three signals, each doing one job: outlined cyan for navigation, a solid
    pill for your own name, quiet grey for log out. The badges are counts of
@@ -31,7 +32,7 @@ export default function Nav() {
           </Link>
           <span className="spacer" />
           <Link className="navbtn nav-quiet" to="/profile">{me.name || 'Profile'}</Link>
-          <button type="button" className="logout" onClick={logOut}>Log out</button>
+          <SpecularButton className="logout" onClick={logOut}>Log out</SpecularButton>
         </>
       ) : (
         <>

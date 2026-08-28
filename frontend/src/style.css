@@ -726,3 +726,68 @@ h2.folds::after {
 @media (prefers-reduced-motion: reduce) {
   h2.folds::after { animation: none; transform: none; }
 }
+
+
+/* ---------- specular button ----------
+   Plain text until you touch it, then a pill spawns around it with a
+   highlight that follows the cursor. Both layers are outset from the text
+   box, so the row never moves when they appear. */
+.specular {
+  position: relative;
+  --sb-x: 50%;
+  --sb-y: 50%;
+  background: none; border: none; padding: 0;
+  font: inherit; cursor: pointer;
+  color: var(--muted);
+  transition: color .2s ease;
+}
+.specular__label { position: relative; z-index: 1; }
+
+.specular::before,
+.specular::after {
+  content: '';
+  position: absolute;
+  inset: -7px -14px;                 /* the pill lives outside the text */
+  border-radius: var(--sb-radius);
+  opacity: 0;
+  transition: opacity .22s ease;
+  pointer-events: none;
+}
+
+/* The ring. A gradient fills the whole box and a mask cuts the middle out,
+   leaving only the border -- which is how a border can carry a gradient at
+   all, since border-color takes a flat colour. */
+.specular::before {
+  padding: var(--sb-thickness);
+  background:
+    radial-gradient(var(--sb-shine) circle at var(--sb-x) var(--sb-y),
+      var(--sb-line), transparent 62%),
+    linear-gradient(var(--sb-base), var(--sb-base));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  z-index: 0;
+}
+
+/* The wash inside it, brightest under the pointer. */
+.specular::after {
+  background:
+    radial-gradient(calc(var(--sb-shine) * 1.5) circle at var(--sb-x) var(--sb-y),
+      rgba(255, 255, 255, .13), transparent 66%),
+    color-mix(in oklab, var(--sb-tint) calc(var(--sb-tint-op) * 100%), transparent);
+  z-index: 0;
+}
+
+.specular:hover::before, .specular:hover::after,
+.specular:focus-visible::before, .specular:focus-visible::after { opacity: 1; }
+.specular:hover, .specular:focus-visible { color: var(--text); }
+.specular:focus-visible { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .specular::before, .specular::after { transition: none; }
+}
