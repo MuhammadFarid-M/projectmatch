@@ -747,7 +747,7 @@ h2.folds::after {
 .specular::after {
   content: '';
   position: absolute;
-  inset: -7px -14px;                 /* the pill lives outside the text */
+  inset: var(--sb-inset-y, -7px) var(--sb-inset-x, -12px);
   border-radius: var(--sb-radius);
   opacity: 0;
   transition: opacity .22s ease;
@@ -760,8 +760,14 @@ h2.folds::after {
 .specular::before {
   padding: var(--sb-thickness);
   background:
+    /* The stops are close together on purpose: spread them out and the
+       highlight becomes a soft wash that smears as the cursor moves,
+       instead of a bright point you can actually follow. */
     radial-gradient(var(--sb-shine) circle at var(--sb-x) var(--sb-y),
-      var(--sb-line), transparent 62%),
+      #FFFFFF 0%,
+      var(--sb-line) 18%,
+      color-mix(in oklab, var(--sb-line) 45%, transparent) 34%,
+      transparent 52%),
     linear-gradient(var(--sb-base), var(--sb-base));
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
@@ -771,17 +777,22 @@ h2.folds::after {
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   mask-composite: exclude;
+  filter: drop-shadow(0 0 5px color-mix(in oklab, var(--sb-line) 65%, transparent));
   z-index: 0;
 }
 
 /* The wash inside it, brightest under the pointer. */
 .specular::after {
   background:
-    radial-gradient(calc(var(--sb-shine) * 1.5) circle at var(--sb-x) var(--sb-y),
-      rgba(255, 255, 255, .13), transparent 66%),
+    radial-gradient(calc(var(--sb-shine) * 1.6) circle at var(--sb-x) var(--sb-y),
+      rgba(255, 255, 255, .20), rgba(255, 255, 255, .05) 45%, transparent 68%),
     color-mix(in oklab, var(--sb-tint) calc(var(--sb-tint-op) * 100%), transparent);
   z-index: 0;
 }
+
+/* The pill is drawn outside the text box, so the row needs room for it or
+   it reaches into the chip alongside. */
+nav .specular.logout { margin-left: 8px; }
 
 .specular:hover::before, .specular:hover::after,
 .specular:focus-visible::before, .specular:focus-visible::after { opacity: 1; }
