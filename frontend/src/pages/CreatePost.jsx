@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getVocab, post } from '../api';
 import PostForm from '../components/PostForm';
 import { Notice } from '../components/bits';
+import FoldText from '../components/FoldText';
 
 export default function CreatePost() {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ export default function CreatePost() {
 
   return (
     <div className="wrap narrow">
-      <h1>Post a requirement</h1>
+      <h1><FoldText text="Post a requirement" /></h1>
       <p className="sub">Add one role block per person you need. Must-haves are
         weighted double when candidates are scored.</p>
       {error && <Notice tone="bad">{error}</Notice>}

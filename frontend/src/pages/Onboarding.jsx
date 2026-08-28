@@ -4,6 +4,7 @@ import { getVocab, post } from '../api';
 import { useSession } from '../session';
 import ProfileForm from '../components/ProfileForm';
 import { Notice } from '../components/bits';
+import FoldText from '../components/FoldText';
 
 /* First run. Same fields as the profile page, arranged to explain what each
    one buys you — an empty profile matches nothing, and the reason why is
@@ -34,7 +35,7 @@ export default function Onboarding() {
 
   return (
     <div className="wrap narrow">
-      <h1>Set up your profile</h1>
+      <h1><FoldText text="Set up your profile" /></h1>
       <p className="sub">Everything here feeds the matching engine. Skip a section and
         you simply stop appearing in the lists that section would have placed you in.</p>
       {error && <Notice tone="bad">{error}</Notice>}

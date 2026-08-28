@@ -3,6 +3,7 @@ import { getVocab, post } from '../api';
 import { useSession } from '../session';
 import ProfileForm from '../components/ProfileForm';
 import { Notice } from '../components/bits';
+import FoldText from '../components/FoldText';
 
 /* Editing what the engine scores. */
 export default function Profile() {
@@ -34,7 +35,7 @@ export default function Profile() {
 
   return (
     <div className="wrap narrow">
-      <h1>Your profile</h1>
+      <h1><FoldText text="Your profile" /></h1>
       <p className="sub">This is what the matching engine scores. The more honest the
         availability and skills, the better your matches.</p>
       {saved && <Notice tone="good">Profile saved.</Notice>}

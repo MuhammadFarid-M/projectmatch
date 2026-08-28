@@ -5,6 +5,7 @@ import { scoreClass } from '../format';
 import { useSession } from '../session';
 import CandidateCard from '../components/CandidateCard';
 import { Empty, ExternalLinks, Notice, Score, Tags } from '../components/bits';
+import FoldText from '../components/FoldText';
 
 /* One post, from whichever side you are on.
 
@@ -303,7 +304,7 @@ export default function Post() {
   const header = (
     <>
       {notice && <Notice tone="good">{notice}</Notice>}
-      <h1>{post.title}</h1>
+      <h1><FoldText key={post.id} text={post.title} /></h1>
       <p className="sub">{spans.join(' · ')}</p>
       <div className="card">
         <p style={{ margin: 0 }}>{post.description}</p>
