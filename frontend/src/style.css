@@ -708,3 +708,21 @@ button.danger:hover { color: var(--alert); border-color: var(--alert); filter: n
   .fold__char { animation: none; }
   .fold__char::after { display: none; }
 }
+
+
+/* A section heading whose text folds draws its rule in with the letters.
+   Left as-is, the line is simply there from the first frame while the words
+   are still arriving, which gives the fold away. scaleX keeps the flex
+   item's width, so nothing shifts as it draws. */
+h2.folds::after {
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: h2-rule .95s cubic-bezier(.2, .8, .3, 1) .12s both;
+}
+@keyframes h2-rule {
+  to { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  h2.folds::after { animation: none; transform: none; }
+}

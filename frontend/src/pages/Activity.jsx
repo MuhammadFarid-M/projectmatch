@@ -124,7 +124,7 @@ export default function Activity() {
       </p>
       {notice && <Notice tone="good">{notice}</Notice>}
 
-      <h2><FoldText text="Invites you've received" /></h2>
+      <h2 className="folds"><FoldText text="Invites you've received" /></h2>
       {invites === null ? null : invites.length
         ? invites.map(v => (
             <InviteCard key={v.id} invite={v} onRespond={respond} busy={busy} />
@@ -135,7 +135,7 @@ export default function Activity() {
           </Empty>
         )}
 
-      <h2><FoldText text="Your applications" /></h2>
+      <h2 className="folds"><FoldText text="Your applications" /></h2>
       {apps === null ? null : apps.length
         ? apps.map(a => <ApplicationCard key={a.id} application={a} />)
         : <Empty><FoldText text="You have not applied to anything yet." /></Empty>}
