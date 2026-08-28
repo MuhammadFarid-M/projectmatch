@@ -4,6 +4,7 @@ import { get, getVocab, qs } from '../api';
 import { plural } from '../format';
 import { useSession } from '../session';
 import FlipWord from '../components/FlipWord';
+import FoldText from '../components/FoldText';
 import HeroBackdrop from '../components/HeroBackdrop';
 import PostCard from '../components/PostCard';
 import { Empty, Notice } from '../components/bits';
@@ -65,15 +66,25 @@ export default function Discover() {
       <header className="hero">
         <HeroBackdrop />
         <div className="hero-inner">
-          <h1>Find the people your team is <FlipWord /></h1>
-          <p>Most teams get built out of whoever you already know. Post what the
-            team still needs and everyone here gets ranked by how much of that gap
-            they close — the skills, the free dates, the projects they have
-            actually shipped.</p>
+          <h1>
+            <FoldText text="Find the people your team is" />{' '}
+            {/* the accent word runs its own flip, so it is left out of the fold */}
+            <FlipWord />
+          </h1>
+          <p>
+            <FoldText text="Most teams get built out of whoever you already know. Post what the team still needs and everyone here gets ranked by how much of that gap they close — the skills, the free dates, the projects they have actually shipped." />
+          </p>
           {stats && (
             <div className="hero-stats">
-              <span><b>{stats.teams}</b> {stats.teams === 1 ? 'team' : 'teams'} building right now</span>
-              <span><b>{stats.roles}</b> {stats.roles === 1 ? 'role' : 'roles'} still open</span>
+              {/* keyed on the count, so the fold replays when the number moves */}
+              <span>
+                <b><FoldText key={stats.teams} text={String(stats.teams)} /></b>{' '}
+                <FoldText text={`${stats.teams === 1 ? 'team' : 'teams'} building right now`} />
+              </span>
+              <span>
+                <b><FoldText key={stats.roles} text={String(stats.roles)} /></b>{' '}
+                <FoldText text={`${stats.roles === 1 ? 'role' : 'roles'} still open`} />
+              </span>
             </div>
           )}
           <div className="hero-cta">
