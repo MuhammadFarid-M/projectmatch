@@ -4,6 +4,7 @@ import { get, getVocab, qs } from '../api';
 import { plural } from '../format';
 import { useSession } from '../session';
 import FlipWord from '../components/FlipWord';
+import ElectricBorder from '../components/ElectricBorder';
 import HeroBackdrop from '../components/HeroBackdrop';
 import PostCard from '../components/PostCard';
 import { Empty, Notice } from '../components/bits';
@@ -85,7 +86,16 @@ export default function Discover() {
       {feed.length > 0 && (
         <>
           <h2>Matched to you</h2>
-          {feed.slice(0, 5).map(p => <PostCard key={p.post_id} post={p} />)}
+          {/* Only the top match is lit. If every card glowed, the glow
+              would stop meaning anything. */}
+          {feed.slice(0, 5).map((p, i) => (i === 0 ? (
+            <ElectricBorder key={p.post_id} color="#7df9ff" speed={1}
+                            chaos={0.12} thickness={2} radius={12}>
+              <PostCard post={p} />
+            </ElectricBorder>
+          ) : (
+            <PostCard key={p.post_id} post={p} />
+          )))}
         </>
       )}
 
