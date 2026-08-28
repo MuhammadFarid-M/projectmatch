@@ -116,6 +116,12 @@ export default function Activity() {
     }
   }
 
+  // Both lists arrive before anything is drawn. Rendering the headings
+  // first and filling them in as each fetch lands pushed the lower half of
+  // the page down twice, and started the folds in two separate waves --
+  // which is the movement this page had and the others did not.
+  if (invites === null || apps === null) return null;
+
   return (
     <div className="wrap">
       <h1><FoldText text="Activity" /></h1>
@@ -125,7 +131,7 @@ export default function Activity() {
       {notice && <Notice tone="good">{notice}</Notice>}
 
       <h2 className="folds"><FoldText text="Invites you've received" /></h2>
-      {invites === null ? null : invites.length
+      {invites.length
         ? invites.map(v => (
             <InviteCard key={v.id} invite={v} onRespond={respond} busy={busy} />
           ))
@@ -136,7 +142,7 @@ export default function Activity() {
         )}
 
       <h2 className="folds"><FoldText text="Your applications" /></h2>
-      {apps === null ? null : apps.length
+      {apps.length
         ? apps.map(a => <ApplicationCard key={a.id} application={a} />)
         : <Empty><FoldText text="You have not applied to anything yet." /></Empty>}
     </div>
