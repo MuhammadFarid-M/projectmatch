@@ -664,3 +664,41 @@ button.danger:hover { color: var(--alert); border-color: var(--alert); filter: n
 @media (prefers-reduced-motion: reduce) {
   .pxs__grid { display: none; }
 }
+
+
+/* ---------- electric border ----------
+   Worn by the single best match in the ranked feed, and nothing else: the
+   glow has to mean "this one" to be worth its cost. The layers are inert,
+   so the card underneath keeps its own hover and its links stay clickable. */
+.eb { position: relative; isolation: isolate; }
+.eb-svg { position: absolute; width: 0; height: 0; pointer-events: none; }
+
+/* Above the content, not below it: the card inside is opaque, so a border
+   drawn underneath is simply covered up. */
+.eb-layers {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.eb-stroke, .eb-glow {
+  position: absolute; inset: 0;
+  box-sizing: border-box;
+  border-style: solid;
+}
+
+/* The blur has to compose with the displacement, not replace it -- a plain
+   `filter: blur()` here would drop the url() filter set inline and leave a
+   soft rectangle with no crackle in it. */
+.eb-glow--near { opacity: .75; }
+.eb-glow--far  { opacity: .45; }
+.eb-glow--near, .eb-glow--far { will-change: filter; }
+
+.eb-content { position: relative; z-index: 1; }
+/* the card inside supplies the panel; the border is the wrapper's job */
+.eb-content .card { margin-bottom: 0; }
+.eb + h2 { margin-top: 26px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .eb-stroke, .eb-glow { filter: none !important; }
+  .eb-glow { display: none; }
+}
