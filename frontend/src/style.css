@@ -664,3 +664,47 @@ button.danger:hover { color: var(--alert); border-color: var(--alert); filter: n
 @media (prefers-reduced-motion: reduce) {
   .pxs__grid { display: none; }
 }
+
+
+/* ---------- FoldText ----------
+   Each letter hangs off a hinge at its top edge and swings down into place,
+   one after the next. The crease is a gradient over the glyph that clears as
+   it lands, which is what stops the fold reading as a plain rotation. */
+.fold { display: inline; }
+.fold__word { display: inline-block; white-space: nowrap; }
+
+.fold__char {
+  display: inline-block;
+  position: relative;
+  transform-origin: top center;
+  backface-visibility: hidden;
+  animation: fold-in var(--fold-dur) cubic-bezier(.2, .8, .3, 1)
+             var(--fold-delay) both;
+  will-change: transform, opacity;
+}
+.fold--bottom .fold__char { transform-origin: bottom center; }
+
+/* The shade sits over the letter and lifts as the flap comes down. */
+.fold__char::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: rgba(6, 8, 12, var(--fold-shade));
+  animation: fold-crease var(--fold-dur) cubic-bezier(.2, .8, .3, 1)
+             var(--fold-delay) both;
+  pointer-events: none;
+}
+
+@keyframes fold-in {
+  from { transform: rotateX(-88deg); opacity: 0; }
+  60%  { opacity: 1; }
+  to   { transform: rotateX(0deg); opacity: 1; }
+}
+@keyframes fold-crease {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fold__char { animation: none; }
+  .fold__char::after { display: none; }
+}

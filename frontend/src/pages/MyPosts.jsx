@@ -4,6 +4,7 @@ import { get, post as apiPost } from '../api';
 import { postMeta } from '../format';
 import { useSession } from '../session';
 import { Empty, ExternalLinks } from '../components/bits';
+import FoldText from '../components/FoldText';
 
 /* Who is on board, and who is waiting on you. A post is a set of slots, so
    this view is a roster with holes in it rather than a list of posts. */
@@ -113,7 +114,7 @@ export default function MyPosts() {
 
   return (
     <div className="wrap">
-      <h1>My posts</h1>
+      <h1><FoldText text="My posts" /></h1>
       <p className="sub">The teams you're building, who's on board, and who's waiting
         on you.</p>
       {posts === null ? null : posts.length

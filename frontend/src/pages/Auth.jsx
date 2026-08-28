@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { post } from '../api';
 import { useSession } from '../session';
 import { Notice } from '../components/bits';
+import FoldText from '../components/FoldText';
 
 /* Sign in and sign up, on one page, because at this size a tab strip would
    be more chrome than choice. */
@@ -42,7 +43,7 @@ export default function Auth() {
     <div className="wrap narrow">
       {error && <Notice tone="bad">{error}</Notice>}
 
-      <h1>Sign in</h1>
+      <h1><FoldText text="Sign in" /></h1>
       <form onSubmit={e => { e.preventDefault(); submit('login', '/api/login', login); }}>
         <label>Email</label>
         <input type="email" required value={login.email}

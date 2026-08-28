@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { get, getVocab, post } from '../api';
 import PostForm from '../components/PostForm';
 import { Notice } from '../components/bits';
+import FoldText from '../components/FoldText';
 
 export default function EditPost() {
   const { id } = useParams();
@@ -35,7 +36,7 @@ export default function EditPost() {
 
   return (
     <div className="wrap narrow">
-      <h1>Edit post</h1>
+      <h1><FoldText text="Edit post" /></h1>
       <p className="sub">Changing the requirements rescores anyone still waiting on a
         decision, so the numbers stay honest.</p>
       {denied && <Notice tone="bad">You can only edit your own posts.</Notice>}

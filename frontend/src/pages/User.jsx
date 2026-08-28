@@ -4,6 +4,7 @@ import { get } from '../api';
 import { initial } from '../format';
 import { useSession } from '../session';
 import { Empty, ExternalLinks, Tags } from '../components/bits';
+import FoldText from '../components/FoldText';
 
 /* A public profile. Contact details appear only once two people are on a
    team together, in both directions. */
@@ -65,7 +66,7 @@ export default function User() {
       <div className="profile-head">
         <span className="avatar lg" aria-hidden="true">{initial(user.name)}</span>
         <div className="grow">
-          <h1 style={{ marginBottom: 2 }}>{user.name}</h1>
+          <h1 style={{ marginBottom: 2 }}><FoldText key={user.id} text={user.name} /></h1>
           <p className="sub" style={{ marginBottom: 6 }}>{bits.join(' · ')}</p>
           <div className="meta">
             <ExternalLinks github={user.github} linkedin={user.linkedin}

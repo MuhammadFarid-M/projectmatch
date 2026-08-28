@@ -4,6 +4,7 @@ import { get, post as apiPost } from '../api';
 import { postMeta } from '../format';
 import { useSession } from '../session';
 import { Empty, Notice, Score } from '../components/bits';
+import FoldText from '../components/FoldText';
 
 /* Both halves of the same ledger. An invite and an application are the same
    row in the database, differing only in who started it and therefore who
@@ -117,7 +118,7 @@ export default function Activity() {
 
   return (
     <div className="wrap">
-      <h1>Activity</h1>
+      <h1><FoldText text="Activity" /></h1>
       <p className="sub">Invites teams sent you, and what happened to the applications
         you sent them.</p>
       {notice && <Notice tone="good">{notice}</Notice>}
