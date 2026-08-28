@@ -30,8 +30,9 @@ export default function CreatePost() {
   return (
     <div className="wrap narrow">
       <h1><FoldText text="Post a requirement" /></h1>
-      <p className="sub">Add one role block per person you need. Must-haves are
-        weighted double when candidates are scored.</p>
+      <p className="sub">
+        <FoldText text="Add one role block per person you need. Must-haves are weighted double when candidates are scored." />
+      </p>
       {error && <Notice tone="bad">{error}</Notice>}
       <PostForm vocab={vocab} submitting={saving} onSubmit={create} />
     </div>

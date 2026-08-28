@@ -115,8 +115,9 @@ export default function MyPosts() {
   return (
     <div className="wrap">
       <h1><FoldText text="My posts" /></h1>
-      <p className="sub">The teams you're building, who's on board, and who's waiting
-        on you.</p>
+      <p className="sub">
+        <FoldText text="The teams you're building, who's on board, and who's waiting on you." />
+      </p>
       {posts === null ? null : posts.length
         ? posts.map(p => (
             <OwnedPost key={p.id} post={p} onToggleStatus={toggleStatus} busy={busy} />

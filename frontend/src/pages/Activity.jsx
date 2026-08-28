@@ -119,26 +119,26 @@ export default function Activity() {
   return (
     <div className="wrap">
       <h1><FoldText text="Activity" /></h1>
-      <p className="sub">Invites teams sent you, and what happened to the applications
-        you sent them.</p>
+      <p className="sub">
+        <FoldText text="Invites teams sent you, and what happened to the applications you sent them." />
+      </p>
       {notice && <Notice tone="good">{notice}</Notice>}
 
-      <h2>Invites you've received</h2>
+      <h2><FoldText text="Invites you've received" /></h2>
       {invites === null ? null : invites.length
         ? invites.map(v => (
             <InviteCard key={v.id} invite={v} onRespond={respond} busy={busy} />
           ))
         : (
           <Empty>
-            No invites yet. Keeping your skills and availability current is what
-            puts you in front of teams.
+            <FoldText text="No invites yet. Keeping your skills and availability current is what puts you in front of teams." />
           </Empty>
         )}
 
-      <h2>Your applications</h2>
+      <h2><FoldText text="Your applications" /></h2>
       {apps === null ? null : apps.length
         ? apps.map(a => <ApplicationCard key={a.id} application={a} />)
-        : <Empty>You have not applied to anything yet.</Empty>}
+        : <Empty><FoldText text="You have not applied to anything yet." /></Empty>}
     </div>
   );
 }

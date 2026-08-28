@@ -11,18 +11,27 @@ import { useId } from 'react';
  * still wraps between words instead of splitting mid-word. The container
  * carries the real text as an aria-label and the pieces are hidden, so a
  * screen reader hears "My posts" rather than eight separate letters.
+ *
+ * `stagger` is a ceiling, not a fixed step: the whole wave is held inside
+ * `spread` seconds. At a flat 45ms a short title reads well, but a ninety
+ * character sentence would still be unfolding four seconds later, so the
+ * step shrinks to fit as the string grows.
  */
 export default function FoldText({
   text,
   hinge = 'top',
   duration = 0.65,
   stagger = 0.045,
+  spread = 0.9,
   perspective = 700,
   creaseShading = 0.55,
   className = '',
 }) {
   const uid = useId().replace(/:/g, '');
   const words = String(text ?? '').split(/(\s+)/);   // keep the spaces
+  const steps = words.reduce(
+    (n, w) => n + (/^\s+$/.test(w) ? 1 : [...w].length), 0);
+  const step = Math.min(stagger, spread / Math.max(steps - 1, 1));
 
   let index = 0;
   return (
@@ -43,7 +52,7 @@ export default function FoldText({
         return (
           <span className="fold__word" key={`${uid}-w${w}`} aria-hidden="true">
             {[...word].map((ch, c) => {
-              const delay = index++ * stagger;
+              const delay = index++ * step;
               return (
                 <span className="fold__char" key={`${uid}-${w}-${c}`}
                       style={{ '--fold-delay': `${delay}s` }}>
